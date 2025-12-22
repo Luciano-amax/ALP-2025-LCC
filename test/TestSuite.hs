@@ -4,7 +4,7 @@ import Expr                   -- Importamos el AST
 import Evaluator              -- Importamos el Evaluador (incluye eval y evalDual)
 import Text.Parsec (parse)    -- Para usar el Parser
 import Parser                 -- Nuestro módulo de parsing
-import Test.HUnit             -- Biblioteca para pruebas unitarias
+import Test.HUnit
 
 -- Función auxiliar para evalDual con simplificación del resultado (por pruebas)
 evalDual' :: Expr -> Double -> Either ErrorType (Double, Double)
@@ -79,9 +79,23 @@ case9 = TestCase $ do
   let result = evalDual' expr 3
   assertEqual "f(x) = π * x y su derivada" (Right (pi * 3, pi)) result
 
+case10 :: Test
+case10 = TestList
+  [ TestCase $ assertEqual "Valor de pi" (Right pi) (eval (Var "pi") 0)
+  , TestCase $ assertEqual "Valor de e" (Right (exp 1)) (eval (Var "e") 0)
+  ]
+
+-- Caso 11: Funciones con pi y e
+case11 :: Test
+case11 = TestList
+  [ TestCase $ assertEqual "sin(pi)" (Right (sin pi)) (eval (Sin (Var "pi")) 0)
+  , TestCase $ assertEqual "cos(pi)" (Right (cos pi)) (eval (Cos (Var "pi")) 0)
+  , TestCase $ assertEqual "exp(e)" (Right (exp (exp 1))) (eval (Exp (Var "e")) 0)
+  ]
+
 -- Suite de Pruebas
 tests :: Test
-tests = TestList [ case1, case2, case3, case4, case5, case6, case7, case8, case9 ]
+tests = TestList [ case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11]
 
 -- Ejecutar las pruebas
 main :: IO ()

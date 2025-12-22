@@ -4,8 +4,7 @@ import System.IO (hFlush, stdout)
 import Text.Parsec (parse)      -- Para usar el parser
 import Expr                     -- Importar el AST
 import Parser                   -- Importar nuestro parser para expresiones
-import Evaluator                -- Importar el evaluador
-
+import Evaluator
 -- Función principal (bucle interactivo)
 main :: IO ()
 main = do
@@ -53,9 +52,9 @@ evaluarEntrada expr = do
 -- Mostrar los resultados de la evaluación
 mostrarResultados :: EvalResult -> Either ErrorType Dual -> IO ()
 mostrarResultados (Left err) _ = putStrLn $ "Error al evaluar la expresión: " ++ show err
-mostrarResultados (Right primal) (Right (Dual _ deriv)) = do
-  putStrLn $ "Valor f(x): " ++ show primal
-  putStrLn $ "Derivada f'(x): " ++ show deriv
+mostrarResultados (Right primalVal) (Right (Dual _ derivVal)) = do
+  putStrLn $ "Valor f(x): " ++ show primalVal
+  putStrLn $ "Derivada f'(x): " ++ show derivVal
 mostrarResultados _ (Left err) = putStrLn $ "Error al calcular derivada: " ++ show err
 
 -- Función auxiliar para leer números de forma segura

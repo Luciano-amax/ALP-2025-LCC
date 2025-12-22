@@ -24,10 +24,10 @@ parseVar = do
 -- Parser para términos entre paréntesis
 parseParens :: Parser Expr
 parseParens = do
-  char '('
+  _ <- char '('
   spaces'
   expr <- parseExpr                  -- Parseamos una expresión dentro
-  char ')'
+  _ <- char ')'
   spaces'
   return expr
 
@@ -60,10 +60,11 @@ parsePow :: Parser Expr
 parsePow = do
   base <- parseTerm
   spaces'
-  char '^'
-  spaces'
-  exponent <- parsePow              -- Recursivo para asociatividad derecha
-  return $ Pow base exponent
+  option base $ do
+    _ <- char '^'
+    spaces'
+    expnt <- parsePow              -- Recursivo para asociatividad derecha
+    return $ Pow base expnt
 
 -- Parser para operadores entre términos
 parseMulDiv, parseAddSub :: Parser Expr

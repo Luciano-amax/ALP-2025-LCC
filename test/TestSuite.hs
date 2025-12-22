@@ -38,7 +38,11 @@ case4 :: Test
 case4 = TestCase $ do
   let expr = Sin (Var "x")  -- f(x) = sin(x)
   let result = evalDual' expr (pi / 2)
-  assertEqual "Evaluación de sin(pi/2)" (Right (1.0, 0.0)) result
+  case result of
+    Right (val, deriv') -> do
+      assertEqual "Valor de sin(pi/2)" 1.0 val
+      assertBool "Derivada cercana a 0" (abs deriv' < 1e-10)
+    Left err -> assertFailure $ "Error inesperado: " ++ show err
 
 -- Caso de prueba 5: Parsing y evaluación combinados
 case5 :: Test
@@ -101,5 +105,5 @@ tests = TestList [ case1, case2, case3, case4, case5, case6, case7, case8, case9
 main :: IO ()
 main = do
   putStrLn "Corriendo pruebas del evaluador:"
-  runTestTT tests
+  _ <- runTestTT tests
   return ()

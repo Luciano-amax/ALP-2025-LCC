@@ -17,9 +17,9 @@ parseLit = do
 -- Parser para variables (como "x")
 parseVar :: Parser Expr
 parseVar = do
-  v <- letter                        -- Solo una letra por ahora
+  v <- many1 letter
   spaces'
-  return $ Var [v]
+  return $ Var v  -- Tratamos todas las variables como Vars para diferenciarlas en el evaluador
 
 -- Parser para términos entre paréntesis
 parseParens :: Parser Expr

@@ -16,8 +16,10 @@ type EvalResult = Either ErrorType Double
 eval :: Expr -> Double -> EvalResult
 eval (Lit x) _ = return x                  -- Literal con valor directo
 eval (Var v) x
-  | v == "x"  = return x                   -- Única variable válida
-  | otherwise = Left $ UndefinedVariable v
+  | v == "pi" = return pi                      -- Interpreta "pi" como la constante π
+  | v == "e"  = return (exp 1)                 -- Interpreta "e" como la base de los logaritmos
+  | v == "x"  = return x                       -- Única variable soportada
+  | otherwise = Left $ UndefinedVariable v     -- Error si la variable no es "x", "pi" o "e"
 eval (Add e1 e2) x = (+) <$> eval e1 x <*> eval e2 x
 eval (Sub e1 e2) x = (-) <$> eval e1 x <*> eval e2 x
 eval (Mul e1 e2) x = (*) <$> eval e1 x <*> eval e2 x

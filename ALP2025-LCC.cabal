@@ -23,10 +23,14 @@ name:               ALP2025-LCC
 version:            0.1.0.0
 
 -- A short (one-line) description of the package.
--- synopsis:
+synopsis:           Evaluador de expresiones matemáticas con diferenciación automática
 
 -- A longer description of the package.
--- description:
+description: 
+  Este proyecto implementa un evaluador de expresiones matemáticas que soporta
+  operaciones aritméticas, funciones trigonométricas, hiperbólicas, logarítmicas
+  y exponenciales.  Además, calcula derivadas automáticamente usando números duales
+  (automatic differentiation). Incluye un parser robusto y una suite completa de tests.
 
 -- The license under which the package is released.
 license:            BSD-3-Clause

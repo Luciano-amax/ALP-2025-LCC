@@ -18,7 +18,7 @@ version :: Version
 version = Version [0,1,0,0] []
 
 synopsis :: String
-synopsis = ""
+synopsis = "Evaluador de expresiones matem\225ticas con diferenciaci\243n autom\225tica"
 copyright :: String
 copyright = ""
 homepage :: String

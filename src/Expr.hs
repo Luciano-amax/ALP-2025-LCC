@@ -2,16 +2,20 @@ module Expr where
 
 -- Representación abstracta de expresiones matemáticas (AST)
 data Expr
-  = Lit Double             -- Constantes literales, como 3.0
-  | Var String             -- Variables, como "x"
-  | Add Expr Expr          -- Suma: expr1 + expr2
-  | Sub Expr Expr          -- Resta: expr1 - expr2
-  | Mul Expr Expr          -- Multiplicación: expr1 * expr2
-  | Div Expr Expr          -- División: expr1 / expr2
-  | Pow Expr Expr          -- Potencia: expr1 ^ expr2
-  | Sin Expr               -- Función seno: sin(x)
-  | Cos Expr               -- Función coseno: cos(x)
-  | Tan Expr               -- Función tangente: tan(x)
-  | Exp Expr               -- Función exponencial: exp(x)
-  | Log Expr               -- Función logaritmo natural: log(x)
-  deriving (Show, Eq)
+  = Lit Double              -- Constante numérica (e.g., 3.0)
+  | Var String              -- Variable (e.g., "x")
+  | Add Expr Expr           -- Suma (e.g., x + y)
+  | Sub Expr Expr           -- Resta (e.g., x - y)
+  | Mul Expr Expr           -- Multiplicación (e.g., x * y)
+  | Div Expr Expr           -- División (e.g., x / y)
+  | Pow Expr Expr           -- Exponenciación (e.g., x^y)
+  | Sin Expr                -- Seno (e.g., sin(x))
+  | Cos Expr                -- Coseno (e.g., cos(x))
+  | Tan Expr                -- Tangente (e.g., tan(x))
+  | Sinh Expr               -- **Seno hiperbólico**
+  | Cosh Expr               -- **Coseno hiperbólico**
+  | Tanh Expr               -- **Tangente hiperbólica**
+  | Arsinh Expr             -- **Seno hiperbólico inverso**
+  | Arcosh Expr             -- **Coseno hiperbólico inverso**
+  | Artanh Expr             -- **Tangente hiperbólica inversa**
+  deriving (Eq, Show)

@@ -46,6 +46,19 @@ eval (Log e) x = do
     then Left $ DomainError "Log domain error"
     else return (log v)
 eval (Exp e) x = exp <$> eval e x
+eval (Sinh e) x = fmap sinh (eval e x)                          -- f(x) = sinh(g(x))
+eval (Cosh e) x = fmap cosh (eval e x)                          -- f(x) = cosh(g(x))
+eval (Tanh e) x = fmap tanh (eval e x)                          -- f(x) = tanh(g(x))
+eval (Arsinh e) x = fmap asinh (eval e x)                       -- f(x) = arsinh(g(x))
+eval (Arcosh e) x = do                                          
+  value <- eval e x
+  if value < 1 then Left InvalidDomain                         -- Debe cumplirse x >= 1
+  else Right (acosh value)                                     -- f(x) = arcosh(g(x))
+eval (Artanh e) x = do                                          
+  value <- eval e x
+  if abs value >= 1 then Left InvalidDomain                    -- Dominio: -1 < x < 1
+  else Right (atanh value)                                     -- f(x) = artanh(g(x))
+
 
 -- Números duales: Almacenan valor primal y derivada
 data Dual = Dual { primal :: Double, deriv :: Double }
@@ -95,3 +108,23 @@ evalDual (Log e) x = do
   if p <= 0
     then Left $ UndefinedVariable "log domain"
     else return $ Dual (log p) (d / p)
+evalDual (Sinh e) x = do
+  Dual f g <- evalDual e x                  -- f = g(x), g = g'(x)
+  return $ Dual (sinh f) (cosh f * g)       -- f(x) = sinh(f), f'(x) = cosh(f) * f'
+evalDual (Cosh e) x = do
+  Dual f g <- evalDual e x
+  return $ Dual (cosh f) (sinh f * g)
+evalDual (Tanh e) x = do
+  Dual f g <- evalDual e x
+  return $ Dual (tanh f) ((1 / (cosh f)^2) * g) -- Derivada: 1 / cosh^2 * g'
+evalDual (Arsinh e) x = do
+  Dual f g <- evalDual e x
+  return $ Dual (asinh f) ((1 / sqrt (f^2 + 1)) * g)
+evalDual (Arcosh e) x = do
+  Dual f g <- evalDual e x
+  if f < 1 then Left InvalidDomain
+  else return $ Dual (acosh f) ((1 / sqrt (f^2 - 1)) * g)
+evalDual (Artanh e) x = do
+  Dual f g <- evalDual e x
+  if abs f >= 1 then Left InvalidDomain
+  else return $ Dual (atanh f) ((1 / (1 - f^2)) * g)

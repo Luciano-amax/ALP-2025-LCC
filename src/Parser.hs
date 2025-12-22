@@ -31,15 +31,21 @@ parseParens = do
   spaces'
   return expr
 
--- Parser para funciones unarias como sin(x), cos(x)
+-- Parser para funciones unarias como sin(x), cos(x) y las nuevas funciones
 parseUnary :: Parser Expr
 parseUnary = do
   func <- choice
-    [ string "sin" >> return Sin
-    , string "cos" >> return Cos
-    , string "tan" >> return Tan
-    , string "exp" >> return Exp
-    , string "log" >> return Log
+    [ string "sin"   >> return Sin
+    , string "cos"   >> return Cos
+    , string "tan"   >> return Tan
+    , string "exp"   >> return Exp
+    , string "log"   >> return Log
+    , string "sinh"  >> return Sinh
+    , string "cosh"  >> return Cosh
+    , string "tanh"  >> return Tanh
+    , string "arsinh" >> return Arsinh
+    , string "arcosh" >> return Arcosh
+    , string "artanh" >> return Artanh
     ]
   spaces'
   arg <- parseTerm

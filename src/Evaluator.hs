@@ -68,7 +68,6 @@ eval (Artanh e) x = do
   if abs value >= 1 then Left (DomainError "valor fuera del dominio")                    -- Dominio: -1 < x < 1
   else Right (atanh value)                                     -- f(x) = artanh(g(x))
 
-
 -- Números duales: Almacenan valor primal y derivada
 data Dual = Dual { primal :: Double, deriv :: Double }
   deriving (Show, Eq)

@@ -1,0 +1,16 @@
+-- Archivo de prueba para validar el evaluador y el cálculo de derivadas
+
+x^2 @ 3
+-- Debería dar: f(3) = 9, f'(3) = 6
+
+sin(x) @ 0
+-- Debería dar: f(0) = 0, f'(0) = 1
+
+x^3 - 2*x + 1 @ 2
+-- Debería dar: f(2) = 5, f'(2) = 10
+
+log(x) @ 1
+-- Debería dar: f(1) = 0, f'(1) = 1
+
+exp(x) @ 0
+-- Debería dar: f(0) = 1, f'(0) = 1

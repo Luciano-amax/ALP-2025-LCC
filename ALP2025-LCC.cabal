@@ -63,7 +63,7 @@ library
     import:           warnings
 
     -- Modules exported by the library.
-    exposed-modules:  Expr, Evaluator, Parser
+    exposed-modules:  Expr, Evaluator, Parser, FileReader
 
     -- Modules included in this library but not exported.
     -- other-modules:

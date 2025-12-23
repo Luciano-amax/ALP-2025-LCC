@@ -1,0 +1,6 @@
+pi @ 0
+e @ 0
+pi * x @ 1
+e^x @ 1
+sin(pi*x) @ 0.5
+log(e^x) @ 2

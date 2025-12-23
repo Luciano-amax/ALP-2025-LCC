@@ -1,0 +1,10 @@
+-x @ 5
+-x^2 @ 3
+(-x)^2 @ 3
+-sin(x) @ 1
+-log(x) @ 2
+x + -x @ 5
+-x * -x @ 2
+exp(-x^2) @ 1
+sin(-x) + cos(-x) @ 1
+-sinh(x) + cosh(x) @ 1

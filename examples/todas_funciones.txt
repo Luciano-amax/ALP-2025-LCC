@@ -1,0 +1,11 @@
+sin(x) * cos(x) + tan(x) @ 1
+sinh(x) * cosh(x) + tanh(x) @ 1
+arsinh(sinh(x)) @ 1
+arcosh(cosh(x)) @ 1
+artanh(tanh(x)) @ 0.5
+sin(arsinh(x)) @ 0.5
+cos(arcosh(x)) @ 2
+exp(log(x)) @ 5
+log(exp(x)) @ 3
+sin(x)^2 + cos(x)^2 @ 2.5
+cosh(x)^2 - sinh(x)^2 @ 1.5

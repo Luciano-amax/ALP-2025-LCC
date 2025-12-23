@@ -1,0 +1,7 @@
+sinh(x) @ 0
+cosh(x) @ 0
+tanh(x) @ 1
+sinh(x) + cosh(x) @ 2
+arsinh(x) @ 0.5
+arcosh(x) @ 1.5
+artanh(x) @ 0.5

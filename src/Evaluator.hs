@@ -70,6 +70,8 @@ data Dual = Dual { primal :: Double, deriv :: Double }
 evalDual :: Expr -> Double -> Either ErrorType Dual
 evalDual (Lit x) _ = return $ Dual x 0
 evalDual (Var v) x
+  | v == "pi" = return $ Dual pi 0          -- Constante pi, derivada 0
+  | v == "e"  = return $ Dual (exp 1) 0     -- Constante e, derivada 0
   | v == "x"  = return $ Dual x 1           -- Primal x, derivada 1
   | otherwise = Left $ UndefinedVariable v
 evalDual (Add e1 e2) x = do

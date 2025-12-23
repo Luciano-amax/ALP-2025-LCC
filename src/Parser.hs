@@ -35,25 +35,38 @@ parseParens = do
 parseUnary :: Parser Expr
 parseUnary = do
   func <- choice
-    [ string "sin"   >> return Sin
-    , string "cos"   >> return Cos
-    , string "tan"   >> return Tan
-    , string "exp"   >> return Exp
-    , string "log"   >> return Log
-    , string "sinh"  >> return Sinh
-    , string "cosh"  >> return Cosh
-    , string "tanh"  >> return Tanh
-    , string "arsinh" >> return Arsinh
-    , string "arcosh" >> return Arcosh
-    , string "artanh" >> return Artanh
+    [ try (string "arsinh") >> return Arsinh
+    , try (string "arcosh") >> return Arcosh
+    , try (string "artanh") >> return Artanh
+    , try (string "sinh")  >> return Sinh
+    , try (string "cosh")  >> return Cosh
+    , try (string "tanh")  >> return Tanh
+    , try (string "sin")   >> return Sin
+    , try (string "cos")   >> return Cos
+    , try (string "tan")   >> return Tan
+    , try (string "exp")   >> return Exp
+    , try (string "log")   >> return Log
     ]
   spaces'
-  arg <- parseTerm
+  _ <- char '('
+  spaces'
+  arg <- parseExpr
+  spaces'
+  _ <- char ')'
+  spaces'
   return $ func arg
+
+-- Parser para negación unaria
+parseNeg :: Parser Expr
+parseNeg = do
+  _ <- char '-'
+  spaces'
+  expr <- parseTerm
+  return $ Sub (Lit 0) expr  -- Convertimos -x en 0 - x
 
 -- Parser de términos básicos (literales, variables, funciones, paréntesis)
 parseTerm :: Parser Expr
-parseTerm = parseLit <|> parseVar <|> parseUnary <|> parseParens
+parseTerm = try parseUnary <|> try parseNeg <|> parseLit <|> parseVar <|> parseParens
 
 -- Parser para el operador de potencia "^" (con alta precedencia, derecha)
 parsePow :: Parser Expr

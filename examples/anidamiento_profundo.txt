@@ -1,0 +1,10 @@
+sin(cos(tan(x))) @ 0.5
+log(exp(log(exp(x)))) @ 2
+sinh(cosh(tanh(x))) @ 1
+exp(sin(cos(x^2))) @ 1
+log(x^2 + exp(sin(x))) @ 1
+sin(x) + cos(x) + tan(x) + exp(x) + log(x) @ 1
+(sin(x) * cos(x)) / (tan(x) + 1) @ 0.5
+x^(x^x) @ 1.5
+sin(x^2) * exp(-x) @ 2
+(log(x) + exp(x)) / (sin(x) + cos(x)) @ 1

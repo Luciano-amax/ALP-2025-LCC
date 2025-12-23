@@ -33,8 +33,10 @@ eval (Pow e1 e2) x = do
   base <- eval e1 x
   expn <- eval e2 x
   if base < 0 && not (expn == fromIntegral (round expn :: Integer))
-    then Left $ (DomainError "Negative base with fractional exponent")
-    else return (base ** expn)
+    then Left $ DomainError "Negative base with fractional exponent"
+    else if base == 0 && expn <= 0
+      then Left $ DomainError "0^0 or 0^negative is undefined"
+      else return (base ** expn)
 eval (Sin e) x = sin <$> eval e x
 eval (Cos e) x = cos <$> eval e x
 eval (Tan e) x = do

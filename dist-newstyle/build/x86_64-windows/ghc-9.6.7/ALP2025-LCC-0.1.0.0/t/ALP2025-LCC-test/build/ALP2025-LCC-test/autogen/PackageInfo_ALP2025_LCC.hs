@@ -1,0 +1,25 @@
+{-# LANGUAGE NoRebindableSyntax #-}
+{-# OPTIONS_GHC -fno-warn-missing-import-lists #-}
+{-# OPTIONS_GHC -w #-}
+module PackageInfo_ALP2025_LCC (
+    name,
+    version,
+    synopsis,
+    copyright,
+    homepage,
+  ) where
+
+import Data.Version (Version(..))
+import Prelude
+
+name :: String
+name = "ALP2025_LCC"
+version :: Version
+version = Version [0,1,0,0] []
+
+synopsis :: String
+synopsis = "Evaluador de expresiones matem\225ticas con diferenciaci\243n autom\225tica"
+copyright :: String
+copyright = ""
+homepage :: String
+homepage = ""

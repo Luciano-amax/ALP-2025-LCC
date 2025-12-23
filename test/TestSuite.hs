@@ -97,13 +97,212 @@ case11 = TestList
   , TestCase $ assertEqual "exp(e)" (Right (exp (exp 1))) (eval (Exp (Var "e")) 0)
   ]
 
+-- ========== Tests de Nuevas Características ==========
+
+-- Tests para sqrt
+testSqrt :: Test
+testSqrt = TestList
+  [ TestCase $ assertEqual "sqrt(4)" (Right 2.0) (eval (Sqrt (Lit 4)) 0)
+  , TestCase $ assertEqual "sqrt(9)" (Right 3.0) (eval (Sqrt (Lit 9)) 0)
+  , TestCase $ assertEqual "sqrt(x) en x=16" (Right 4.0) (eval (Sqrt (Var "x")) 16)
+  , TestCase $ do
+      let result = evalDual' (Sqrt (Var "x")) 9
+      assertEqual "sqrt(x) derivada en x=9" (Right (3.0, 1/6)) result
+  , TestCase $ do
+      let result = eval (Sqrt (Lit (-1))) 0
+      case result of
+        Left (DomainError _) -> return ()
+        _ -> assertFailure "sqrt(-1) debería dar error de dominio"
+  ]
+
+-- Tests para números negativos literales
+testNegativosLiterales :: Test
+testNegativosLiterales = TestList
+  [ TestCase $ assertEqual "-5" (Right (-5.0)) (eval (Lit (-5)) 0)
+  , TestCase $ assertEqual "-3.14" (Right (-3.14)) (eval (Lit (-3.14)) 0)
+  , TestCase $ do
+      let result = case parse parseExpr "" "-5" of
+                     Right expr -> eval expr 0
+                     Left _     -> Left $ UndefinedVariable "parse error"
+      assertEqual "parsing -5" (Right (-5.0)) result
+  , TestCase $ do
+      let result = case parse parseExpr "" "-3.14" of
+                     Right expr -> eval expr 0
+                     Left _     -> Left $ UndefinedVariable "parse error"
+      assertEqual "parsing -3.14" (Right (-3.14)) result
+  ]
+
+-- Tests para optimizaciones algebraicas
+testOptimizaciones :: Test
+testOptimizaciones = TestList
+  [ TestCase $ assertEqual "x + 0 = x" (Var "x") (optimize (Add (Var "x") (Lit 0)))
+  , TestCase $ assertEqual "0 + x = x" (Var "x") (optimize (Add (Lit 0) (Var "x")))
+  , TestCase $ assertEqual "x * 1 = x" (Var "x") (optimize (Mul (Var "x") (Lit 1)))
+  , TestCase $ assertEqual "1 * x = x" (Var "x") (optimize (Mul (Lit 1) (Var "x")))
+  , TestCase $ assertEqual "x * 0 = 0" (Lit 0) (optimize (Mul (Var "x") (Lit 0)))
+  , TestCase $ assertEqual "0 * x = 0" (Lit 0) (optimize (Mul (Lit 0) (Var "x")))
+  , TestCase $ assertEqual "x - 0 = x" (Var "x") (optimize (Sub (Var "x") (Lit 0)))
+  , TestCase $ assertEqual "x / 1 = x" (Var "x") (optimize (Div (Var "x") (Lit 1)))
+  , TestCase $ assertEqual "x^0 = 1" (Lit 1) (optimize (Pow (Var "x") (Lit 0)))
+  , TestCase $ assertEqual "x^1 = x" (Var "x") (optimize (Pow (Var "x") (Lit 1)))
+  , TestCase $ assertEqual "1^x = 1" (Lit 1) (optimize (Pow (Lit 1) (Var "x")))
+  ]
+
+-- Tests de validación de dominios
+testValidacionDominios :: Test
+testValidacionDominios = TestList
+  [ TestCase $ do
+      let result = eval (Div (Lit 1) (Lit 0)) 0
+      case result of
+        Left DivideByZero -> return ()
+        _ -> assertFailure "1/0 debería dar DivideByZero"
+  , TestCase $ do
+      let result = eval (Log (Lit 0)) 0
+      case result of
+        Left (DomainError _) -> return ()
+        _ -> assertFailure "log(0) debería dar error de dominio"
+  , TestCase $ do
+      let result = eval (Log (Lit (-1))) 0
+      case result of
+        Left (DomainError _) -> return ()
+        _ -> assertFailure "log(-1) debería dar error de dominio"
+  , TestCase $ do
+      let result = eval (Arcosh (Lit 0.5)) 0
+      case result of
+        Left (DomainError _) -> return ()
+        _ -> assertFailure "arcosh(0.5) debería dar error de dominio"
+  , TestCase $ do
+      let result = eval (Artanh (Lit 2)) 0
+      case result of
+        Left (DomainError _) -> return ()
+        _ -> assertFailure "artanh(2) debería dar error de dominio"
+  , TestCase $ do
+      let result = eval (Pow (Lit 0) (Lit 0)) 0
+      case result of
+        Left (DomainError _) -> return ()
+        _ -> assertFailure "0^0 debería dar error de dominio"
+  ]
+
+-- Tests de parsing complejo
+testParsingComplejo :: Test
+testParsingComplejo = TestList
+  [ TestCase $ do
+      let result = case parse parseExpr "" "sqrt(4)" of
+                     Right expr -> eval expr 0
+                     Left _     -> Left $ UndefinedVariable "parse error"
+      assertEqual "parsing sqrt(4)" (Right 2.0) result
+  , TestCase $ do
+      let result = case parse parseExpr "" "sin(x) + cos(x)" of
+                     Right expr -> eval expr 0
+                     Left _     -> Left $ UndefinedVariable "parse error"
+      assertEqual "parsing sin(x) + cos(x)" (Right (sin 0 + cos 0)) result
+  , TestCase $ do
+      let result = case parse parseExpr "" "exp(-x)" of
+                     Right _ -> True
+                     Left _  -> False
+      assertBool "parsing exp(-x)" result
+  , TestCase $ do
+      let result = case parse parseExpr "" "sqrt(x^2 + 1)" of
+                     Right expr -> eval expr 2
+                     Left _     -> Left $ UndefinedVariable "parse error"
+      assertEqual "parsing sqrt(x^2 + 1)" (Right (sqrt 5)) result
+  ]
+
+-- Tests de expresiones de ejemplos reales
+testEjemplosReales :: Test
+testEjemplosReales = TestList
+  [ -- De basico.txt
+    TestCase $ do
+      let result = case parse parseExpr "" "x^2" of
+                     Right expr -> eval expr 3
+                     Left _     -> Left $ UndefinedVariable "parse error"
+      assertEqual "x^2 @ 3" (Right 9.0) result
+  , TestCase $ do
+      let result = case parse parseExpr "" "sin(x)" of
+                     Right expr -> eval expr (pi/2)
+                     Left _     -> Left $ UndefinedVariable "parse error"
+      case result of
+        Right val -> assertBool "sin(pi/2) ≈ 1" (abs (val - 1.0) < 1e-10)
+        Left _ -> assertFailure "No debería dar error"
+  , TestCase $ do
+      let result = case parse parseExpr "" "log(x)" of
+                     Right expr -> evalDual' expr (exp 1)
+                     Left _     -> Left $ UndefinedVariable "parse error"
+      case result of
+        Right (val, deriv) -> do
+          assertBool "log(e) ≈ 1" (abs (val - 1.0) < 1e-10)
+          assertBool "log'(e) ≈ 1/e" (abs (deriv - 1/(exp 1)) < 1e-10)
+        Left _ -> assertFailure "No debería dar error"
+  , -- De compuestas.txt
+    TestCase $ do
+      let result = case parse parseExpr "" "x^3 - 2*x^2 + x - 5" of
+                     Right expr -> evalDual' expr 2
+                     Left _     -> Left $ UndefinedVariable "parse error"
+      assertEqual "x^3 - 2*x^2 + x - 5 @ 2" (Right (-3.0, 5.0)) result
+  , TestCase $ do
+      let result = case parse parseExpr "" "sin(x^2)" of
+                     Right expr -> eval expr 1
+                     Left _     -> Left $ UndefinedVariable "parse error"
+      case result of
+        Right val -> assertBool "sin(1^2) = sin(1)" (abs (val - sin 1) < 1e-10)
+        Left _ -> assertFailure "No debería dar error"
+  , -- De constantes
+    TestCase $ do
+      let result = case parse parseExpr "" "pi * x + e" of
+                     Right expr -> evalDual' expr 1
+                     Left _     -> Left $ UndefinedVariable "parse error"
+      case result of
+        Right (val, deriv) -> do
+          assertBool "pi * 1 + e" (abs (val - (pi + exp 1)) < 1e-10)
+          assertBool "derivada = pi" (abs (deriv - pi) < 1e-10)
+        Left _ -> assertFailure "No debería dar error"
+  , -- De trigonometricas.txt
+    TestCase $ do
+      let result = case parse parseExpr "" "sin(x)^2 + cos(x)^2" of
+                     Right expr -> eval expr 0.5
+                     Left _     -> Left $ UndefinedVariable "parse error"
+      case result of
+        Right val -> assertBool "sin²(x) + cos²(x) = 1" (abs (val - 1.0) < 1e-10)
+        Left _ -> assertFailure "No debería dar error"
+  , -- De hiperbolicas.txt
+    TestCase $ do
+      let result = case parse parseExpr "" "sinh(x) + cosh(x)" of
+                     Right expr -> eval expr 2
+                     Left _     -> Left $ UndefinedVariable "parse error"
+      case result of
+        Right val -> assertBool "sinh(2) + cosh(2) = e^2" (abs (val - exp 2) < 1e-10)
+        Left _ -> assertFailure "No debería dar error"
+  ]
+
 -- Suite de Pruebas
 tests :: Test
-tests = TestList [ case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11]
+tests = TestList 
+  [ TestLabel "Básicos originales" $ TestList [case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11]
+  , TestLabel "Función sqrt" testSqrt
+  , TestLabel "Números negativos literales" testNegativosLiterales
+  , TestLabel "Optimizaciones algebraicas" testOptimizaciones
+  , TestLabel "Validación de dominios" testValidacionDominios
+  , TestLabel "Parsing complejo" testParsingComplejo
+  , TestLabel "Ejemplos reales" testEjemplosReales
+  ]
 
 -- Ejecutar las pruebas
 main :: IO ()
 main = do
-  putStrLn "Corriendo pruebas del evaluador:"
-  _ <- runTestTT tests
-  return ()
+  putStrLn "=========================================="
+  putStrLn "  Corriendo Suite Completa de Tests"
+  putStrLn "=========================================="
+  putStrLn ""
+  counts <- runTestTT tests
+  putStrLn ""
+  putStrLn "=========================================="
+  putStrLn "  Resumen de Tests"
+  putStrLn "=========================================="
+  putStrLn $ "Casos:    " ++ show (cases counts)
+  putStrLn $ "Intentos: " ++ show (tried counts)
+  putStrLn $ "Errores:  " ++ show (errors counts)
+  putStrLn $ "Fallos:   " ++ show (failures counts)
+  putStrLn "=========================================="
+  if errors counts + failures counts == 0
+    then putStrLn "[OK] TODOS LOS TESTS PASARON" >> return ()
+    else putStrLn "[X] ALGUNOS TESTS FALLARON" >> return ()

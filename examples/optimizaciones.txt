@@ -1,0 +1,37 @@
+-- Archivo de prueba para optimizaciones algebraicas
+
+-- Identidades aditivas
+x + 0 @ 5
+0 + x @ 5
+
+-- Identidades multiplicativas  
+x * 1 @ 3
+1 * x @ 3
+
+-- Anulación multiplicativa
+x * 0 @ 7
+0 * x @ 7
+
+-- Identidad sustractiva
+x - 0 @ 4
+
+-- Identidad de división
+x / 1 @ 6
+
+-- Potencias especiales
+x^0 @ 8
+x^1 @ 8
+1^x @ 8
+0^x @ 2
+
+-- Constantes evaluadas
+2 + 3 @ 0
+5 * 4 @ 0
+10 - 3 @ 0
+8 / 2 @ 0
+2^3 @ 0
+
+-- Expresiones que simplifican
+x + 0 + 0 @ 2
+x * 1 * 1 @ 2
+(x + 0) * 1 @ 3

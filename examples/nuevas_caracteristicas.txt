@@ -1,0 +1,28 @@
+-- Pruebas de nuevas características
+
+-- Números negativos literales
+-5 @ 0
+-3.14 @ 0
+
+-- Raíz cuadrada
+sqrt(4) @ 0
+sqrt(x) @ 9
+sqrt(x^2) @ 3
+
+-- Optimizaciones algebraicas
+x + 0 @ 5
+x * 1 @ 5
+x * 0 @ 5
+x - 0 @ 5
+x / 1 @ 5
+x^0 @ 5
+x^1 @ 5
+1^x @ 5
+
+-- Combinación: sqrt con expresiones complejas
+sqrt(x^2 + 2*x + 1) @ 3
+sqrt(exp(x)) @ 2
+
+-- Decimales precisos (verificar que 3.14 no se redondea a 3)
+3.14 @ 0
+2.71828 @ 0

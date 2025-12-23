@@ -8,11 +8,21 @@ import Expr                    -- Importamos el AST
 spaces' :: Parser ()
 spaces' = skipMany space
 
--- Parser para literales (números)
+-- Parser para literales (números, incluyendo negativos)
 parseLit :: Parser Expr
 parseLit = do
-  n <- many1 (digit <|> char '.') -- Captura números decimales como "3.14"
-  return $ Lit (read n)           -- Convierte a Double y lo guarda como `Lit`
+  -- Opcionalmente un signo negativo
+  sign <- option "" (string "-")
+  -- Dígitos antes del punto decimal
+  whole <- many1 digit
+  -- Opcionalmente parte decimal
+  decimal <- option "" $ do
+    _ <- char '.'
+    digits <- many1 digit
+    return ('.' : digits)
+  spaces'
+  let numStr = sign ++ whole ++ decimal
+  return $ Lit (read numStr)
 
 -- Parser para variables (como "x")
 parseVar :: Parser Expr
@@ -41,6 +51,7 @@ parseUnary = do
     , try (string "sinh")  >> return Sinh
     , try (string "cosh")  >> return Cosh
     , try (string "tanh")  >> return Tanh
+    , try (string "sqrt")  >> return Sqrt
     , try (string "sin")   >> return Sin
     , try (string "cos")   >> return Cos
     , try (string "tan")   >> return Tan
@@ -56,17 +67,19 @@ parseUnary = do
   spaces'
   return $ func arg
 
--- Parser para negación unaria
+-- Parser para negación unaria (solo para expresiones, no literales)
 parseNeg :: Parser Expr
 parseNeg = do
   _ <- char '-'
   spaces'
+  -- No parsear si viene un dígito (eso lo maneja parseLit)
+  notFollowedBy digit
   expr <- parseTerm
   return $ Sub (Lit 0) expr  -- Convertimos -x en 0 - x
 
 -- Parser de términos básicos (literales, variables, funciones, paréntesis)
 parseTerm :: Parser Expr
-parseTerm = try parseUnary <|> try parseNeg <|> parseLit <|> parseVar <|> parseParens
+parseTerm = try parseUnary <|> try parseLit <|> try parseNeg <|> parseVar <|> parseParens
 
 -- Parser para el operador de potencia "^" (con alta precedencia, derecha)
 parsePow :: Parser Expr

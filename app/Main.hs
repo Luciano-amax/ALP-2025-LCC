@@ -7,6 +7,7 @@ import Expr
 import Parser
 import Evaluator (Dual(..), EvalResult, ErrorType(..), eval, evalDual)
 import FileReader
+import Control.Monad
 
 -- Función principal
 main :: IO ()
@@ -15,8 +16,12 @@ main = do
   case args of
     ["--file", archivo] -> procesarArchivo archivo
     ["-f", archivo] -> procesarArchivo archivo
+    ["--help"] -> mostrarAyuda
+    ["-h"] -> mostrarAyuda
     [] -> modoInteractivo
-    _ -> mostrarAyuda
+    _ -> do
+      putStrLn "Error: Argumentos inválidos"
+      mostrarAyuda
 
 -- Mostrar ayuda
 mostrarAyuda :: IO ()
@@ -27,66 +32,84 @@ mostrarAyuda = do
   putStrLn "  ALP2025-LCC              - Modo interactivo"
   putStrLn "  ALP2025-LCC -f archivo   - Leer desde archivo"
   putStrLn "  ALP2025-LCC --file archivo"
+  putStrLn "  ALP2025-LCC --help       - Mostrar esta ayuda"
   putStrLn ""
   putStrLn "Formato del archivo:"
   putStrLn "  expresión @ valor_x"
+  putStrLn "  -- Los comentarios comienzan con --"
   putStrLn ""
   putStrLn "Ejemplo:"
   putStrLn "  sin(x) + x^2 @ 1.5"
   putStrLn "  log(x) * cos(x) @ 2.0"
+  putStrLn ""
+  putStrLn "Funciones soportadas:"
+  putStrLn "  Trigonométricas: sin, cos, tan"
+  putStrLn "  Hiperbólicas: sinh, cosh, tanh, arsinh, arcosh, artanh"
+  putStrLn "  Otras: exp, log"
+  putStrLn "  Constantes: pi, e"
 
--- Modo interactivo (código existente)
+-- Modo interactivo mejorado
 modoInteractivo :: IO ()
 modoInteractivo = do
   putStrLn "=== Evaluador de Expresiones con Derivadas ==="
   putStrLn "Escribe una expresión matemática:"
   putStrLn "Por ejemplo: sin(x) + x^2"
-  putStrLn "Escribe 'salir' para finalizar."
+  putStrLn "Escribe 'salir' o 'quit' para finalizar."
   loop
   where
     loop = do
       putStr ">>> "
       hFlush stdout
       input <- getLine
-      if input == "salir"
-        then putStrLn "¡Adiós!"
-        else do
-          procesarEntrada input
-          loop
+      let normalizado = map toLower $ trim input
+      unless (normalizado `elem` ["salir", "quit", "exit"]) $ do
+        unless (null normalizado) $ procesarEntrada input
+        loop
+    
+    trim = dropWhile (== ' ') . reverse . dropWhile (== ' ') . reverse
+    toLower c | c >= 'A' && c <= 'Z' = toEnum (fromEnum c + 32)
+              | otherwise = c
 
--- Procesar la entrada del usuario (código existente)
+-- Procesar la entrada del usuario con mejor manejo de errores
 procesarEntrada :: String -> IO ()
 procesarEntrada input = do
   let parsed = parse parseExpr "" input
-  case parsed of
-    Left err -> putStrLn $ "Error de parsing: " ++ show err
-    Right expr -> do
-      putStrLn $ "AST generado:  " ++ show expr
-      evaluarEntrada expr
+  either 
+    (\err -> putStrLn $ "Error de parsing: " ++ show err)
+    (\expr -> do
+      putStrLn $ "AST generado: " ++ show expr
+      evaluarEntrada expr)
+    parsed
 
--- Evaluar la expresión en x = 1 y calcular derivada (código existente)
+-- Evaluar la expresión en x ingresado por el usuario
 evaluarEntrada :: Expr -> IO ()
 evaluarEntrada expr = do
   putStr "Ingrese el valor de x: "
   hFlush stdout
   xInput <- getLine
-  let mx = safeRead xInput
-  case mx of
+  case safeRead xInput of
     Nothing -> putStrLn "Por favor ingrese un valor numérico válido para x."
     Just x  -> do
       let evalResult = eval expr x
-      let dualResult = evalDual expr x
-      mostrarResultados evalResult dualResult
+          dualResult = evalDual expr x
+      mostrarResultados x evalResult dualResult
 
--- Mostrar los resultados de la evaluación (código existente)
-mostrarResultados :: EvalResult -> Either ErrorType Dual -> IO ()
-mostrarResultados (Left err) _ = putStrLn $ "Error al evaluar la expresión: " ++ show err
-mostrarResultados (Right primalVal) (Right (Dual _ derivVal)) = do
-  putStrLn $ "Valor f(x): " ++ show primalVal
-  putStrLn $ "Derivada f'(x): " ++ show derivVal
-mostrarResultados _ (Left err) = putStrLn $ "Error al calcular derivada: " ++ show err
+-- Mostrar los resultados usando Either de forma funcional
+mostrarResultados :: Double -> EvalResult -> Either ErrorType Dual -> IO ()
+mostrarResultados x evalResult dualResult = do
+  -- Mostrar valor usando either
+  either 
+    (\err -> putStrLn $ "Error al evaluar la expresión: " ++ show err)
+    (\val -> putStrLn $ "Valor f(" ++ show x ++ "): " ++ show val)
+    evalResult
+  
+  -- Mostrar derivada usando either
+  either
+    (\err -> putStrLn $ "Error al calcular derivada: " ++ show err)
+    (\(Dual _ d) -> putStrLn $ "Derivada f'(" ++ show x ++ "): " ++ show d)
+    dualResult
 
--- Función auxiliar para leer números de forma segura (código existente)
+-- Función auxiliar para leer números de forma segura usando Maybe
 safeRead :: Read a => String -> Maybe a
 safeRead s = case reads s of
   [(x, "")] -> Just x

@@ -1,21 +1,16 @@
 module Parser (parseExpr) where
 
-import Text.Parsec             -- Biblioteca de parsing Parsec
-import Text.Parsec.String      -- Tipo Parser para cadenas
-import Expr                    -- Importamos el AST
+import Text.Parsec
+import Text.Parsec.String
+import Expr
 
--- Espaciado (opcional, puede omitir espacios iniciales o entre tokens)
 spaces' :: Parser ()
 spaces' = skipMany space
 
--- Parser para literales (números, incluyendo negativos)
 parseLit :: Parser Expr
 parseLit = do
-  -- Opcionalmente un signo negativo
   sign <- option "" (string "-")
-  -- Dígitos antes del punto decimal
   whole <- many1 digit
-  -- Opcionalmente parte decimal
   decimal <- option "" $ do
     _ <- char '.'
     digits <- many1 digit
@@ -24,24 +19,22 @@ parseLit = do
   let numStr = sign ++ whole ++ decimal
   return $ Lit (read numStr)
 
--- Parser para variables (como "x")
 parseVar :: Parser Expr
 parseVar = do
   v <- many1 letter
   spaces'
-  return $ Var v  -- Tratamos todas las variables como Vars para diferenciarlas en el evaluador
+  return $ Var v
 
--- Parser para términos entre paréntesis
 parseParens :: Parser Expr
 parseParens = do
   _ <- char '('
   spaces'
-  expr <- parseExpr                  -- Parseamos una expresión dentro
+  expr <- parseExpr
   _ <- char ')'
   spaces'
   return expr
 
--- Parser para funciones unarias como sin(x), cos(x) y las nuevas funciones
+-- Parsea funciones unarias. Orden importante: funciones más largas primero
 parseUnary :: Parser Expr
 parseUnary = do
   func <- choice
@@ -67,21 +60,19 @@ parseUnary = do
   spaces'
   return $ func arg
 
--- Parser para negación unaria (solo para expresiones, no literales)
+-- Convierte -expr en (0 - expr), evitando conflicto con literales negativos
 parseNeg :: Parser Expr
 parseNeg = do
   _ <- char '-'
   spaces'
-  -- No parsear si viene un dígito (eso lo maneja parseLit)
   notFollowedBy digit
   expr <- parseTerm
-  return $ Sub (Lit 0) expr  -- Convertimos -x en 0 - x
+  return $ Sub (Lit 0) expr
 
--- Parser de términos básicos (literales, variables, funciones, paréntesis)
+
 parseTerm :: Parser Expr
 parseTerm = try parseUnary <|> try parseLit <|> try parseNeg <|> parseVar <|> parseParens
 
--- Parser para el operador de potencia "^" (con alta precedencia, derecha)
 parsePow :: Parser Expr
 parsePow = do
   base <- parseTerm
@@ -89,10 +80,9 @@ parsePow = do
   option base $ do
     _ <- char '^'
     spaces'
-    expnt <- parsePow              -- Recursivo para asociatividad derecha
+    expnt <- parsePow
     return $ Pow base expnt
 
--- Parser para operadores entre términos
 parseMulDiv, parseAddSub :: Parser Expr
 parseMulDiv = chainl1 parsePow (mulOp <|> divOp)
   where
@@ -104,6 +94,6 @@ parseAddSub = chainl1 parseMulDiv (addOp <|> subOp)
     addOp = char '+' >> spaces' >> return Add
     subOp = char '-' >> spaces' >> return Sub
 
--- Parser para expresiones completas
+
 parseExpr :: Parser Expr
 parseExpr = spaces' >> parseAddSub

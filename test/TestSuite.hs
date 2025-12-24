@@ -2,7 +2,7 @@ module Main (main) where
 
 import Expr                   -- Importamos el AST
 import Evaluator              -- Importamos el Evaluador (incluye eval y evalDual)
-import Text.Parsec (parse)    -- Para usar el Parser
+import Text.Parsec
 import Parser                 -- Nuestro módulo de parsing
 import Test.HUnit
 

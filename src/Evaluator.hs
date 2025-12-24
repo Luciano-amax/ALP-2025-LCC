@@ -1,47 +1,51 @@
 module Evaluator (Dual(..), EvalResult, ErrorType(..), eval, evalDual) where
 
-import Expr                              -- Importamos el AST
+import Expr
 
--- Errores manejados durante la evaluación
 data ErrorType
-  = DivideByZero                          -- Error de división entre 0
-  | UndefinedVariable String              -- Variable indefinida
-  | DomainError String                    -- Errores de dominio matemático
+  = DivideByZero
+  | UndefinedVariable String
+  | DomainError String
   deriving (Show, Eq)
 
--- Tipo para manejar errores en contexto de evaluación
 type EvalResult = Either ErrorType Double
 
--- Evaluación básica: valor primal de una expresión
+-- Evalúa una expresión en un punto dado
 eval :: Expr -> Double -> EvalResult
-eval (Lit x) _ = return x                  -- Literal con valor directo
+eval (Lit x) _ = return x
 eval (Var v) x
-  | v == "pi" = return pi                      -- Interpreta "pi" como la constante π
-  | v == "e"  = return (exp 1)                 -- Interpreta "e" como la base de los logaritmos
-  | v == "x"  = return x                       -- Única variable soportada
-  | otherwise = Left $ UndefinedVariable v     -- Error si la variable no es "x", "pi" o "e"
+  | v == "pi" = return pi
+  | v == "e"  = return (exp 1)
+  | v == "x"  = return x
+  | otherwise = Left $ UndefinedVariable v
 eval (Add e1 e2) x = (+) <$> eval e1 x <*> eval e2 x
 eval (Sub e1 e2) x = (-) <$> eval e1 x <*> eval e2 x
 eval (Mul e1 e2) x = (*) <$> eval e1 x <*> eval e2 x
 eval (Div e1 e2) x = do
   v1 <- eval e1 x
   v2 <- eval e2 x
-  if v2 == 0
+  if abs v2 < 1e-15
     then Left DivideByZero
     else return (v1 / v2)
 eval (Pow e1 e2) x = do
   base <- eval e1 x
   expn <- eval e2 x
-  if base < 0 && not (expn == fromIntegral (round expn :: Integer))
-    then Left $ DomainError "Negative base with fractional exponent"
-    else if base == 0 && expn <= 0
+  if abs base < 1e-15 then
+    if expn <= 0
       then Left $ DomainError "0^0 or 0^negative is undefined"
-      else return (base ** expn)
+      else return 0
+  else if abs (base - 1) < 1e-15 then  -- base ≈ 1
+    return 1
+  else if abs expn < 1e-15 then  -- expn ≈ 0
+    return 1
+  else if base < 0 && not (abs (expn - fromIntegral (round expn :: Integer)) < 1e-10)
+    then Left $ DomainError "Negative base with fractional exponent"
+    else return (base ** expn)
 eval (Sin e) x = sin <$> eval e x
 eval (Cos e) x = cos <$> eval e x
 eval (Tan e) x = do
   v <- eval e x
-  if cos v == 0
+  if abs (cos v) < 1e-15  -- Usar epsilon para comparar con 0
     then Left $ (DomainError "tan undefined at this input")
     else return (tan v)
 eval (Log e) x = do
@@ -72,7 +76,6 @@ eval (Artanh e) x = do
 data Dual = Dual { primal :: Double, deriv :: Double }
   deriving (Show, Eq)
 
--- Instancias para hacer Dual más utilizable con operadores estándar
 instance Num Dual where
   Dual p1 d1 + Dual p2 d2 = Dual (p1 + p2) (d1 + d2)
   Dual p1 d1 - Dual p2 d2 = Dual (p1 - p2) (d1 - d2)
@@ -120,17 +123,15 @@ instance Floating Dual where
        then error "power: result is NaN or Infinite"
        else Dual result (result * (d2 * log p1 + d1 * p2 / p1))
 
--- Evaluación dual: calcular valor y derivada simultáneamente
--- Usando las instancias de Num/Fractional/Floating para código más limpio
+-- Calcula valor y derivada usando diferenciación automática con números duales
 evalDual :: Expr -> Double -> Either ErrorType Dual
-evalDual (Lit n) _ = pure $ Dual n 0  -- BUG CORREGIDO: preservar decimales
+evalDual (Lit n) _ = pure $ Dual n 0
 evalDual (Var v) x
-  | v == "pi" = pure $ Dual pi 0          -- Constante pi, derivada 0
-  | v == "e"  = pure $ Dual (exp 1) 0     -- Constante e, derivada 0
-  | v == "x"  = pure $ Dual x 1           -- Primal x, derivada 1
+  | v == "pi" = pure $ Dual pi 0
+  | v == "e"  = pure $ Dual (exp 1) 0
+  | v == "x"  = pure $ Dual x 1
   | otherwise = Left $ UndefinedVariable v
 
--- Operaciones aritméticas usando las instancias
 evalDual (Add e1 e2) x = (+) <$> evalDual e1 x <*> evalDual e2 x
 evalDual (Sub e1 e2) x = (-) <$> evalDual e1 x <*> evalDual e2 x
 evalDual (Mul e1 e2) x = (*) <$> evalDual e1 x <*> evalDual e2 x
@@ -138,7 +139,7 @@ evalDual (Mul e1 e2) x = (*) <$> evalDual e1 x <*> evalDual e2 x
 evalDual (Div e1 e2) x = do
   d1 <- evalDual e1 x
   d2 <- evalDual e2 x
-  if primal d2 == 0
+  if abs (primal d2) < 1e-15
     then Left DivideByZero
     else pure $ d1 / d2
 
@@ -153,13 +154,12 @@ evalDual (Pow e1 e2) x = do
       then Left $ DomainError "0^0 or 0^negative is undefined"
       else pure $ d1 ** d2
 
--- Funciones trigonométricas usando las instancias
 evalDual (Sin e) x = sin <$> evalDual e x
 evalDual (Cos e) x = cos <$> evalDual e x
 evalDual (Tan e) x = do
   d <- evalDual e x
   let p = primal d
-  if cos p == 0
+  if abs (cos p) < 1e-15
     then Left $ DomainError "tan undefined at this point"
     else let sec2 = 1 / (cos p ** 2)
          in pure $ Dual (tan p) (deriv d * sec2)
@@ -172,7 +172,6 @@ evalDual (Log e) x = do
     then Left $ DomainError "log requires positive argument"
     else pure $ log d
 
--- Funciones hiperbólicas
 evalDual (Sinh e) x = sinh <$> evalDual e x
 evalDual (Cosh e) x = cosh <$> evalDual e x
 evalDual (Tanh e) x = do
@@ -181,7 +180,6 @@ evalDual (Tanh e) x = do
       sech2 = 1 / (cosh p ** 2)
   pure $ Dual (tanh p) (deriv d * sech2)
 
--- Funciones hiperbólicas inversas con validación de dominio
 evalDual (Arsinh e) x = asinh <$> evalDual e x
 
 evalDual (Sqrt e) x = do
@@ -190,7 +188,7 @@ evalDual (Sqrt e) x = do
   if p < 0
     then Left $ DomainError "sqrt requires non-negative argument"
     else if p == 0
-      then pure $ Dual 0 0  -- Caso especial en x=0
+      then pure $ Dual 0 0
       else pure $ sqrt d
 
 evalDual (Arcosh e) x = do

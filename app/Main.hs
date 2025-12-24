@@ -9,7 +9,6 @@ import Evaluator (Dual(..), EvalResult, ErrorType(..), eval, evalDual)
 import FileReader
 import Control.Monad
 
--- Función principal
 main :: IO ()
 main = do
   args <- getArgs
@@ -23,7 +22,6 @@ main = do
       putStrLn "Error: Argumentos inválidos"
       mostrarAyuda
 
--- Mostrar ayuda
 mostrarAyuda :: IO ()
 mostrarAyuda = do
   putStrLn "=== Evaluador de Expresiones Matemáticas ==="
@@ -48,7 +46,6 @@ mostrarAyuda = do
   putStrLn "  Otras: exp, log"
   putStrLn "  Constantes: pi, e"
 
--- Modo interactivo mejorado
 modoInteractivo :: IO ()
 modoInteractivo = do
   putStrLn "=== Evaluador de Expresiones con Derivadas ==="
@@ -70,7 +67,6 @@ modoInteractivo = do
     toLower c | c >= 'A' && c <= 'Z' = toEnum (fromEnum c + 32)
               | otherwise = c
 
--- Procesar la entrada del usuario con mejor manejo de errores
 procesarEntrada :: String -> IO ()
 procesarEntrada input = do
   let parsed = parse parseExpr "" input
@@ -81,7 +77,6 @@ procesarEntrada input = do
       evaluarEntrada expr)
     parsed
 
--- Evaluar la expresión en x ingresado por el usuario
 evaluarEntrada :: Expr -> IO ()
 evaluarEntrada expr = do
   putStr "Ingrese el valor de x: "
@@ -94,22 +89,18 @@ evaluarEntrada expr = do
           dualResult = evalDual expr x
       mostrarResultados x evalResult dualResult
 
--- Mostrar los resultados usando Either de forma funcional
 mostrarResultados :: Double -> EvalResult -> Either ErrorType Dual -> IO ()
 mostrarResultados x evalResult dualResult = do
-  -- Mostrar valor usando either
   either 
     (\err -> putStrLn $ "Error al evaluar la expresión: " ++ show err)
     (\val -> putStrLn $ "Valor f(" ++ show x ++ "): " ++ show val)
     evalResult
   
-  -- Mostrar derivada usando either
   either
     (\err -> putStrLn $ "Error al calcular derivada: " ++ show err)
     (\(Dual _ d) -> putStrLn $ "Derivada f'(" ++ show x ++ "): " ++ show d)
     dualResult
 
--- Función auxiliar para leer números de forma segura usando Maybe
 safeRead :: Read a => String -> Maybe a
 safeRead s = case reads s of
   [(x, "")] -> Just x

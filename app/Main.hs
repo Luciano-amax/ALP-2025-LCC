@@ -5,7 +5,7 @@ import System.Environment (getArgs)
 import Text.Parsec (parse)
 import Expr
 import Parser
-import Evaluator (Dual(..), EvalResult, ErrorType(..), eval, evalDual)
+import Evaluator
 import FileReader
 import Control.Monad
 

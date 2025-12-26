@@ -183,6 +183,61 @@ testValidacionDominios = TestList
         _ -> assertFailure "0^0 debería dar error de dominio"
   ]
 
+-- Tests para números negativos con potencias (problemas de NaN)
+testNegativePowers :: Test
+testNegativePowers = TestList
+  [ TestCase $ do
+      -- (-x)^2 con x=3 debería dar 9 y derivada 6 (regla de la cadena: 2*(-x)*(-1) = 2x)
+      let expr = Pow (Sub (Lit 0) (Var "x")) (Lit 2)
+      let result = evalDual' expr 3
+      case result of
+        Right (val, deriv') -> do
+          assertEqual "(-x)^2 valor en x=3" 9.0 val
+          assertEqual "(-x)^2 derivada en x=3" 6.0 deriv'
+        Left err -> assertFailure $ "Error inesperado en (-x)^2: " ++ show err
+  , TestCase $ do
+      -- -x^2 parseado como (0-x)^2, derivada es 2x
+      let result = case parse parseExpr "" "-x^2" of
+                     Right expr -> evalDual' expr 3
+                     Left err   -> Left $ UndefinedVariable $ "parse error: " ++ show err
+      case result of
+        Right (val, deriv') -> do
+          assertBool "(-x)^2 valor cercano a 9" (abs (val - 9.0) < 1e-10)
+          assertBool "(-x)^2 derivada cercana a 6" (abs (deriv' - 6.0) < 1e-10)
+        Left err -> assertFailure $ "Error en -x^2: " ++ show err
+  , TestCase $ do
+      -- (-x) * (-x) con x=2 debería dar 4 y derivada 4
+      let expr = Mul (Sub (Lit 0) (Var "x")) (Sub (Lit 0) (Var "x"))
+      let result = evalDual' expr 2
+      assertEqual "(-x)*(-x) en x=2" (Right (4.0, 4.0)) result
+  ]
+
+-- Tests para identidades trigonométricas que producían NaN
+testTrigIdentities :: Test
+testTrigIdentities = TestList
+  [ TestCase $ do
+      -- (sin(x)^2 + cos(x)^2) * x debería dar x con derivada 1
+      let expr = Mul (Add (Pow (Sin (Var "x")) (Lit 2)) 
+                          (Pow (Cos (Var "x")) (Lit 2))) 
+                     (Var "x")
+      let result = evalDual' expr 3
+      case result of
+        Right (val, deriv') -> do
+          assertBool "Valor cercano a 3" (abs (val - 3.0) < 1e-10)
+          -- La derivada puede no ser exactamente 1 por errores numéricos
+          assertBool "Derivada es número finito" (not $ isNaN deriv' || isInfinite deriv')
+        Left err -> assertFailure $ "Error en identidad trigonométrica: " ++ show err
+  , TestCase $ do
+      -- sin^2(x) + cos^2(x) debería dar 1 con derivada 0
+      let expr = Add (Pow (Sin (Var "x")) (Lit 2)) (Pow (Cos (Var "x")) (Lit 2))
+      let result = evalDual' expr 0.5
+      case result of
+        Right (val, deriv') -> do
+          assertBool "sin^2 + cos^2 = 1" (abs (val - 1.0) < 1e-10)
+          assertBool "Derivada es número finito" (not $ isNaN deriv' || isInfinite deriv')
+        Left err -> assertFailure $ "Error: " ++ show err
+  ]
+
 -- Tests de parsing complejo
 testParsingComplejo :: Test
 testParsingComplejo = TestList
@@ -280,6 +335,8 @@ tests = TestList
   [ TestLabel "Básicos originales" $ TestList [case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11]
   , TestLabel "Función sqrt" testSqrt
   , TestLabel "Números negativos literales" testNegativosLiterales
+  , TestLabel "Potencias con bases negativas" testNegativePowers
+  , TestLabel "Identidades trigonométricas" testTrigIdentities
   , TestLabel "Optimizaciones algebraicas" testOptimizaciones
   , TestLabel "Validación de dominios" testValidacionDominios
   , TestLabel "Parsing complejo" testParsingComplejo

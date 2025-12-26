@@ -119,9 +119,29 @@ instance Floating Dual where
     | otherwise = Dual (sqrt p) (d / (2 * sqrt p))
   (**) (Dual p1 d1) (Dual p2 d2) = 
     let result = p1 ** p2
+        -- Caso especial: base negativa con exponente entero
+        isInteger = abs (p2 - fromIntegral (round p2 :: Integer)) < 1e-10
     in if isNaN result || isInfinite result
        then error "power: result is NaN or Infinite"
-       else Dual result (result * (d2 * log p1 + d1 * p2 / p1))
+       -- Caso especial: base = 0
+       else if abs p1 < 1e-15
+         then if p2 > 1
+           then Dual 0 0  -- 0^n con n>1: tanto valor como derivada son 0
+           else if abs (p2 - 1) < 1e-15
+             then Dual 0 d1  -- 0^1: derivada es d1
+             else Dual 0 0  -- otros casos con base 0
+       else if p1 < 0 && isInteger
+         -- Para base negativa con exponente entero: d/dx[f^n] = n * f^(n-1) * f'
+         then let n = round p2 :: Integer
+                  deriv' = fromIntegral n * (p1 ** fromIntegral (n - 1)) * d1
+              in Dual result deriv'
+         -- Caso especial: exponente constante (d2 = 0)
+         else if abs d2 < 1e-15 && p1 > 0
+           then Dual result (p2 * (p1 ** (p2 - 1)) * d1)
+         -- Fórmula general: d/dx[f^g] = f^g * (g' * ln(f) + f' * g / f)
+         else if p1 > 0
+           then Dual result (result * (d2 * log p1 + d1 * p2 / p1))
+         else error "power: negative base with non-integer exponent"
 
 -- Calcula valor y derivada usando diferenciación automática con números duales
 evalDual :: Expr -> Double -> Either ErrorType Dual
@@ -148,7 +168,8 @@ evalDual (Pow e1 e2) x = do
   d2 <- evalDual e2 x
   let p1 = primal d1
       p2 = primal d2
-  if p1 < 0 && p2 /= fromIntegral (round p2 :: Integer)
+      isInteger = abs (p2 - fromIntegral (round p2 :: Integer)) < 1e-10
+  if p1 < 0 && not isInteger
     then Left $ DomainError "Negative base with fractional exponent"
     else if p1 == 0 && p2 <= 0
       then Left $ DomainError "0^0 or 0^negative is undefined"

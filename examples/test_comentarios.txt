@@ -1,0 +1,13 @@
+-- Prueba de comentarios en el parser
+pi @ 0  -- constante pi
+e @ 0   -- constante e
+
+{- Este es un comentario
+   multilínea que debe ser
+   ignorado por el parser -}
+
+sin(pi/2) @ 0  -- seno de pi/2
+log(e) @ 0     -- logaritmo natural de e
+
+-- Expresión con constantes y operaciones
+pi * e + x @ 1

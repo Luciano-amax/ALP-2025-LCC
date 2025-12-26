@@ -4,6 +4,7 @@ import Text.Parsec
 import Expr
 import Parser
 import Evaluator
+import PrettyPrinter
 import Control.Monad
 
 data EvaluacionCompleta = EvaluacionCompleta
@@ -20,7 +21,8 @@ data LineaEvaluacion = LineaEvaluacion
 -- Parsea líneas con formato: expresión @ valor
 parsearLinea :: String -> Either String LineaEvaluacion
 parsearLinea linea =
-  case break (== '@') linea of
+  let lineaLimpia = limpiarComentarios linea
+  in case break (== '@') lineaLimpia of
     (exprStr, '@':xStr) -> do
       expr <- case parse parseExpr "" (trim exprStr) of
         Left err -> Left $ "Error de parsing: " ++ show err
@@ -33,7 +35,16 @@ parsearLinea linea =
     parseDouble s = case reads s of
       [(val, "")] -> Right val
       _ -> Left $ "Valor de x inválido: " ++ s
+    
+    -- Elimina comentarios de línea (--) pero respeta números negativos
+    limpiarComentarios [] = []
+    limpiarComentarios ('-':'-':_) = ""  -- Comentario encontrado
+    limpiarComentarios (c:cs) = c : limpiarComentarios cs
 
+
+-- Normaliza -0.0 a 0.0 para una mejor presentación
+normalizarCero :: Double -> Double
+normalizarCero x = if x == 0 then 0 else x
 
 evaluarCompleto :: Expr -> Double -> EvaluacionCompleta
 evaluarCompleto expr x = 
@@ -49,45 +60,92 @@ evaluarCompleto expr x =
 esLineaValida :: String -> Bool
 esLineaValida s = case dropWhile (`elem` " \t") s of
   [] -> False
-  '-':'-':_ -> False
+  '-':'-':_ -> False  -- Líneas que empiezan con comentario
+  '{':'-':_ -> False  -- Inicio de comentario multilinea
   _ -> True
+
+-- Filtra comentarios multilinea de una lista de líneas
+filtrarComentariosMultilinea :: [String] -> [String]
+filtrarComentariosMultilinea = go False
+  where
+    go _ [] = []
+    go enComentario (l:ls)
+      | enComentario = 
+          if "-}" `isInfixOf` l
+          then go False ls
+          else go True ls
+      | "{-" `isInfixOf` l =
+          if "-}" `isInfixOf` l
+          then l : go False ls  -- comentario de una sola línea {- ... -}
+          else go True ls
+      | otherwise = l : go False ls
+    
+    isInfixOf :: Eq a => [a] -> [a] -> Bool
+    isInfixOf needle haystack = any (needle `isPrefixOf`) (tails haystack)
+    
+    isPrefixOf :: Eq a => [a] -> [a] -> Bool
+    isPrefixOf [] _ = True
+    isPrefixOf _ [] = False
+    isPrefixOf (x:xs) (y:ys) = x == y && isPrefixOf xs ys
+    
+    tails :: [a] -> [[a]]
+    tails [] = [[]]
+    tails xs@(_:xs') = xs : tails xs'
 
 
 evaluarLinea :: Int -> String -> IO ()
 evaluarLinea lineNum linea = do
-  putStrLn $ "\n--- Línea " ++ show lineNum ++ " ---"
-  putStrLn $ "Input: " ++ linea
+  putStrLn ""
+  putStrLn $ "==============================================="
+  putStrLn $ " Expresion #" ++ show lineNum
+  putStrLn $ "==============================================="
+  putStrLn $ "  Input: " ++ linea
   case parsearLinea linea of
-    Left err -> putStrLn $ "[X] Error: " ++ err
+    Left err -> do
+      putStrLn $ "  [ERROR] " ++ err
+      putStrLn ""
     Right (LineaEvaluacion expr x) -> do
       let resultado = evaluarCompleto expr x
-      putStrLn $ "Expresion: " ++ show (exprEval resultado)
+          xStr = if x == fromInteger (round x) then show (round x :: Integer) else show x
+      putStrLn $ "  Expresion:  " ++ prettyPrint (exprEval resultado)
       when (exprEval resultado /= exprOptimizada resultado) $
-        putStrLn $ "Optimizada: " ++ show (exprOptimizada resultado)
-      putStrLn $ "Evaluando en x = " ++ show (valorEval resultado)
+        putStrLn $ "  Optimizada: " ++ prettyPrint (exprOptimizada resultado)
+      putStrLn $ "  Evaluando en x = " ++ xStr
+      putStrLn "  ---------------------------------------------"
       
       either 
-        (\err -> putStrLn $ "[X] Error al evaluar: " ++ show err)
-        (\val -> putStrLn $ "[OK] f(" ++ show x ++ ") = " ++ show val)
+        (\err -> putStrLn $ "  [X] Error al evaluar: " ++ show err)
+        (\val -> putStrLn $ "  [OK] f(" ++ xStr ++ ") = " ++ show (normalizarCero val))
         (resultadoValor resultado)
       
       either
-        (\err -> putStrLn $ "[X] Error al calcular derivada: " ++ show err)
-        (\(Dual _ d) -> putStrLn $ "[OK] f'(" ++ show x ++ ") = " ++ show d)
+        (\err -> putStrLn $ "  [X] Error al calcular derivada: " ++ show err)
+        (\(Dual _ d) -> putStrLn $ "  [OK] f'(" ++ xStr ++ ") = " ++ show (normalizarCero d))
         (resultadoDerivada resultado)
 
 
 procesarArchivo :: FilePath -> IO ()
 procesarArchivo archivo = do
   contenido <- readFile archivo
-  let lineas = filter esLineaValida $ lines contenido
+  let lineasFiltradas = filtrarComentariosMultilinea (lines contenido)
+      lineas = filter esLineaValida lineasFiltradas
       numLineas = length lineas
   
-  putStrLn $ "=== Procesando archivo: " ++ archivo ++ " ==="
-  putStrLn $ "Total de expresiones: " ++ show numLineas
+  putStrLn ""
+  putStrLn "==============================================="
+  putStrLn "         PROCESAMIENTO DE ARCHIVO"
+  putStrLn "==============================================="
+  putStrLn $ "  Archivo: " ++ archivo
+  putStrLn $ "  Total de expresiones: " ++ show numLineas
+  putStrLn ""
   
-  when (numLineas == 0) $
-    putStrLn "Advertencia: No se encontraron expresiones válidas"
+  when (numLineas == 0) $ do
+    putStrLn "  [!] Advertencia: No se encontraron expresiones validas"
+    putStrLn ""
   
   mapM_ (uncurry evaluarLinea) (zip [1..] lineas)
-  putStrLn "\n=== Proceso completado ==="
+  putStrLn ""
+  putStrLn "==============================================="
+  putStrLn "         [OK] PROCESO COMPLETADO"
+  putStrLn "==============================================="
+  putStrLn ""

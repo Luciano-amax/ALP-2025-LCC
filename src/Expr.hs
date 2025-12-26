@@ -92,6 +92,7 @@ optimize expr = case expr of
     let e1' = optimize e1
         e2' = optimize e2
     in case (e1', e2') of
+      (Lit 0, _) -> Lit 0
       (_, Lit 0) -> Lit 1
       (_, Lit 1) -> e1'
       (Lit 1, _) -> Lit 1

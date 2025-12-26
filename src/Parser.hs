@@ -2,98 +2,139 @@ module Parser (parseExpr) where
 
 import Text.Parsec
 import Text.Parsec.String
+import qualified Text.Parsec.Token as Token
+import Text.Parsec.Language (emptyDef)
 import Expr
 
-spaces' :: Parser ()
-spaces' = skipMany space
+-- Definición del analizador léxico
+algebraDef :: Token.LanguageDef st
+algebraDef = emptyDef
+  { Token.commentLine     = "--"
+  , Token.commentStart    = "{-"
+  , Token.commentEnd      = "-}"
+  , Token.identStart      = letter
+  , Token.identLetter     = letter
+  , Token.opStart         = oneOf "+-*/^"
+  , Token.opLetter        = oneOf "+-*/^"
+  , Token.reservedNames   = [ "sin", "cos", "tan"
+                            , "sinh", "cosh", "tanh"
+                            , "arsinh", "arcosh", "artanh"
+                            , "sqrt", "exp", "log"
+                            , "pi", "e"
+                            ]
+  , Token.reservedOpNames = ["+", "-", "*", "/", "^"]
+  , Token.caseSensitive   = True
+  }
 
+-- TokenParser con funciones auxiliares
+lexer :: Token.TokenParser st
+lexer = Token.makeTokenParser algebraDef
+
+-- Funciones auxiliares del TokenParser
+lexeme :: Parser a -> Parser a
+lexeme = Token.lexeme lexer
+
+natural :: Parser Integer
+natural = Token.natural lexer
+
+float :: Parser Double
+float = Token.float lexer
+
+parens :: Parser a -> Parser a
+parens = Token.parens lexer
+
+reserved :: String -> Parser ()
+reserved = Token.reserved lexer
+
+reservedOp :: String -> Parser ()
+reservedOp = Token.reservedOp lexer
+
+identifier :: Parser String
+identifier = Token.identifier lexer
+
+whiteSpace :: Parser ()
+whiteSpace = Token.whiteSpace lexer
+
+-- Parser de literales numéricos (enteros o flotantes)
 parseLit :: Parser Expr
-parseLit = do
-  sign <- option "" (string "-")
-  whole <- many1 digit
-  decimal <- option "" $ do
-    _ <- char '.'
-    digits <- many1 digit
-    return ('.' : digits)
-  spaces'
-  let numStr = sign ++ whole ++ decimal
-  return $ Lit (read numStr)
+parseLit = lexeme $ do
+  sign <- optionMaybe (char '-')
+  num <- try float <|> (fromInteger <$> natural)
+  let value = case sign of
+                Just _  -> -num
+                Nothing -> num
+  return $ Lit value
 
+-- Parser de constantes matemáticas
+parseConstant :: Parser Expr
+parseConstant = 
+  (reserved "pi" >> return (Lit pi)) <|>
+  (reserved "e" >> return (Lit (exp 1)))
+
+-- Parser de variables
 parseVar :: Parser Expr
-parseVar = do
-  v <- many1 letter
-  spaces'
-  return $ Var v
+parseVar = Var <$> identifier
 
-parseParens :: Parser Expr
-parseParens = do
-  _ <- char '('
-  spaces'
-  expr <- parseExpr
-  _ <- char ')'
-  spaces'
-  return expr
-
--- Parsea funciones unarias. Orden importante: funciones más largas primero
+-- Parsea funciones unarias (ahora con reserved)
 parseUnary :: Parser Expr
 parseUnary = do
   func <- choice
-    [ try (string "arsinh") >> return Arsinh
-    , try (string "arcosh") >> return Arcosh
-    , try (string "artanh") >> return Artanh
-    , try (string "sinh")  >> return Sinh
-    , try (string "cosh")  >> return Cosh
-    , try (string "tanh")  >> return Tanh
-    , try (string "sqrt")  >> return Sqrt
-    , try (string "sin")   >> return Sin
-    , try (string "cos")   >> return Cos
-    , try (string "tan")   >> return Tan
-    , try (string "exp")   >> return Exp
-    , try (string "log")   >> return Log
+    [ try (reserved "arsinh") >> return Arsinh
+    , try (reserved "arcosh") >> return Arcosh
+    , try (reserved "artanh") >> return Artanh
+    , try (reserved "sinh")  >> return Sinh
+    , try (reserved "cosh")  >> return Cosh
+    , try (reserved "tanh")  >> return Tanh
+    , try (reserved "sqrt")  >> return Sqrt
+    , try (reserved "sin")   >> return Sin
+    , try (reserved "cos")   >> return Cos
+    , try (reserved "tan")   >> return Tan
+    , try (reserved "exp")   >> return Exp
+    , try (reserved "log")   >> return Log
     ]
-  spaces'
-  _ <- char '('
-  spaces'
-  arg <- parseExpr
-  spaces'
-  _ <- char ')'
-  spaces'
+  arg <- parens parseExpr
   return $ func arg
 
 -- Convierte -expr en (0 - expr), evitando conflicto con literales negativos
 parseNeg :: Parser Expr
-parseNeg = do
+parseNeg = lexeme $ do
   _ <- char '-'
-  spaces'
   notFollowedBy digit
   expr <- parseTerm
   return $ Sub (Lit 0) expr
 
-
+-- Términos (elementos atómicos)
 parseTerm :: Parser Expr
-parseTerm = try parseUnary <|> try parseLit <|> try parseNeg <|> parseVar <|> parseParens
+parseTerm = try parseUnary 
+        <|> try parseConstant 
+        <|> try parseLit 
+        <|> try parseNeg 
+        <|> parseVar 
+        <|> parens parseExpr
 
+-- Potencias (asociatividad derecha)
 parsePow :: Parser Expr
 parsePow = do
   base <- parseTerm
-  spaces'
   option base $ do
-    _ <- char '^'
-    spaces'
+    reservedOp "^"
     expnt <- parsePow
     return $ Pow base expnt
 
-parseMulDiv, parseAddSub :: Parser Expr
+-- Multiplicación y división
+parseMulDiv :: Parser Expr
 parseMulDiv = chainl1 parsePow (mulOp <|> divOp)
   where
-    mulOp = char '*' >> spaces' >> return Mul
-    divOp = char '/' >> spaces' >> return Div
+    mulOp = reservedOp "*" >> return Mul
+    divOp = reservedOp "/" >> return Div
 
+-- Suma y resta
+parseAddSub :: Parser Expr
 parseAddSub = chainl1 parseMulDiv (addOp <|> subOp)
   where
-    addOp = char '+' >> spaces' >> return Add
-    subOp = char '-' >> spaces' >> return Sub
+    addOp = reservedOp "+" >> return Add
+    subOp = reservedOp "-" >> return Sub
 
-
+-- Parser principal
 parseExpr :: Parser Expr
-parseExpr = spaces' >> parseAddSub
+parseExpr = whiteSpace >> parseAddSub

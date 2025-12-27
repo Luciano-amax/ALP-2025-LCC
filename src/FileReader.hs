@@ -6,6 +6,8 @@ import Parser
 import Evaluator
 import PrettyPrinter
 import Control.Monad
+import Data.List (isInfixOf)
+import Data.Char (isSpace)
 
 data EvaluacionCompleta = EvaluacionCompleta
   { exprEval :: Expr  , exprOptimizada :: Expr  , valorEval :: Double
@@ -19,19 +21,23 @@ data LineaEvaluacion = LineaEvaluacion
   } deriving (Show)
 
 -- Parsea líneas con formato: expresión @ valor
+-- Simplemente para archivos - Main usa un parseo interno (Ver Conveniencia)
 parsearLinea :: String -> Either String LineaEvaluacion
 parsearLinea linea =
   let lineaLimpia = limpiarComentarios linea
   in case break (== '@') lineaLimpia of
     (exprStr, '@':xStr) -> do
-      expr <- case parse parseExpr "" (trim exprStr) of
+      expr <- case parse parseExpr "" (strip exprStr) of
         Left err -> Left $ "Error de parsing: " ++ show err
         Right e -> Right e
-      x <- parseDouble (trim xStr)
+      x <- parseDouble (strip xStr)
       pure $ LineaEvaluacion expr x
     _ -> Left "Formato inválido. Use: expresión @ valor"
   where
-    trim s = let s' = dropWhile (== ' ') s in reverse (dropWhile (== ' ') (reverse s'))
+    -- Más eficiente usando dropWhile en ambas direcciones
+    strip = dropWhile isSpace . dropWhileEnd isSpace
+    dropWhileEnd p = reverse . dropWhile p . reverse
+    
     parseDouble s = case reads s of
       [(val, "")] -> Right val
       _ -> Left $ "Valor de x inválido: " ++ s
@@ -65,40 +71,29 @@ esLineaValida s = case dropWhile (`elem` " \t") s of
   _ -> True
 
 -- Filtra comentarios multilinea de una lista de líneas
+-- Optimizado usando isInfixOf de Data.List en lugar de implementación manual
 filtrarComentariosMultilinea :: [String] -> [String]
 filtrarComentariosMultilinea = go False
   where
     go _ [] = []
-    go enComentario (l:ls)
-      | enComentario = 
-          if "-}" `isInfixOf` l
-          then go False ls
-          else go True ls
+    go True (l:ls) = 
+      if "-}" `isInfixOf` l
+        then go False ls
+        else go True ls
+    go False (l:ls)
       | "{-" `isInfixOf` l =
           if "-}" `isInfixOf` l
-          then l : go False ls  -- comentario de una sola línea {- ... -}
-          else go True ls
+            then l : go False ls  -- comentario de una sola línea {- ... -}
+            else go True ls
       | otherwise = l : go False ls
-    
-    isInfixOf :: Eq a => [a] -> [a] -> Bool
-    isInfixOf needle haystack = any (needle `isPrefixOf`) (tails haystack)
-    
-    isPrefixOf :: Eq a => [a] -> [a] -> Bool
-    isPrefixOf [] _ = True
-    isPrefixOf _ [] = False
-    isPrefixOf (x:xs) (y:ys) = x == y && isPrefixOf xs ys
-    
-    tails :: [a] -> [[a]]
-    tails [] = [[]]
-    tails xs@(_:xs') = xs : tails xs'
 
 
 evaluarLinea :: Int -> String -> IO ()
 evaluarLinea lineNum linea = do
   putStrLn ""
-  putStrLn $ "==============================================="
+  putStrLn  "==============================================="
   putStrLn $ " Expresion #" ++ show lineNum
-  putStrLn $ "==============================================="
+  putStrLn  "==============================================="
   putStrLn $ "  Input: " ++ linea
   case parsearLinea linea of
     Left err -> do

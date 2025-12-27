@@ -1,14 +1,15 @@
 module Main where
 
-import System.IO (hFlush, stdout)
-import System.Environment (getArgs)
-import Text.Parsec (parse)
+import System.IO
+import System.Environment
+import Text.Parsec
 import Expr
 import Parser
 import Evaluator
 import FileReader
 import PrettyPrinter
 import Control.Monad
+import Data.Char (isSpace, toLower)
 
 main :: IO ()
 main = do
@@ -62,14 +63,14 @@ modoInteractivo = do
       putStr ">>> "
       hFlush stdout
       input <- getLine
-      let normalizado = map toLower $ trim input
+      let normalizado = map toLower $ strip input
       unless (normalizado `elem` ["salir", "quit", "exit"]) $ do
         unless (null normalizado) $ procesarEntrada input
         loop
     
-    trim = dropWhile (== ' ') . reverse . dropWhile (== ' ') . reverse
-    toLower c | c >= 'A' && c <= 'Z' = toEnum (fromEnum c + 32)
-              | otherwise = c
+    -- Más eficiente evitando doble reverse
+    strip = dropWhile isSpace . dropWhileEnd isSpace
+    dropWhileEnd p = reverse . dropWhile p . reverse
 
 procesarEntrada :: String -> IO ()
 procesarEntrada input = do
@@ -115,7 +116,7 @@ parsearValor s =
         Left _ -> Nothing
       Left _ -> Nothing
 
--- Normaliza -0.0 a 0.0 para una mejor presentación
+-- Normaliza -0.0 a 0.0 para evitar doble representacion
 --(Revisar teoria de IEEE754 -> ARqui)
 normalizarCero :: Double -> Double
 normalizarCero x = if x == 0 then 0 else x

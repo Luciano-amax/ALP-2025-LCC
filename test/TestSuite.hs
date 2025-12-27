@@ -284,9 +284,9 @@ testEjemplosReales = TestList
                      Right expr -> evalDual' expr (exp 1)
                      Left _     -> Left $ UndefinedVariable "parse error"
       case result of
-        Right (val, deriv) -> do
+        Right (val, deriv') -> do
           assertBool "log(e) ≈ 1" (abs (val - 1.0) < 1e-10)
-          assertBool "log'(e) ≈ 1/e" (abs (deriv - 1/(exp 1)) < 1e-10)
+          assertBool "log'(e) ≈ 1/e" (abs (deriv' - 1/(exp 1)) < 1e-10)
         Left _ -> assertFailure "No debería dar error"
   , -- De compuestas.txt
     TestCase $ do
@@ -307,9 +307,9 @@ testEjemplosReales = TestList
                      Right expr -> evalDual' expr 1
                      Left _     -> Left $ UndefinedVariable "parse error"
       case result of
-        Right (val, deriv) -> do
+        Right (val, deriv') -> do
           assertBool "pi * 1 + e" (abs (val - (pi + exp 1)) < 1e-10)
-          assertBool "derivada = pi" (abs (deriv - pi) < 1e-10)
+          assertBool "derivada = pi" (abs (deriv' - pi) < 1e-10)
         Left _ -> assertFailure "No debería dar error"
   , -- De trigonometricas.txt
     TestCase $ do
@@ -350,16 +350,16 @@ main = do
   putStrLn "  Corriendo Suite Completa de Tests"
   putStrLn "=========================================="
   putStrLn ""
-  counts <- runTestTT tests
+  counts' <- runTestTT tests
   putStrLn ""
   putStrLn "=========================================="
   putStrLn "  Resumen de Tests"
   putStrLn "=========================================="
-  putStrLn $ "Casos:    " ++ show (cases counts)
-  putStrLn $ "Intentos: " ++ show (tried counts)
-  putStrLn $ "Errores:  " ++ show (errors counts)
-  putStrLn $ "Fallos:   " ++ show (failures counts)
+  putStrLn $ "Casos:    " ++ show (cases counts')
+  putStrLn $ "Intentos: " ++ show (tried counts')
+  putStrLn $ "Errores:  " ++ show (errors counts')
+  putStrLn $ "Fallos:   " ++ show (failures counts')
   putStrLn "=========================================="
-  if errors counts + failures counts == 0
+  if errors counts' + failures counts' == 0
     then putStrLn "[OK] TODOS LOS TESTS PASARON" >> return ()
-    else putStrLn "[X] ALGUNOS TESTS FALLARON" >> return ()
+    else putStrLn "[X] ALGUNOS TESTS FALLARON" >> return () --Revisar especificacion de errores

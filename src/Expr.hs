@@ -23,6 +23,7 @@ data Expr
   deriving (Eq, Show)
 
 -- Simplifica expresiones aplicando identidades algebraicas en un solo pase
+-- Podriamos extender a simplificaciones del estilo 4x + 4x = 8x (Revisar y Decidir) (Func nueva)
 optimize :: Expr -> Expr
 optimize expr = case expr of
   Add (Lit 0) e -> optimize e
@@ -99,7 +100,7 @@ optimize expr = case expr of
       (Lit a, Lit b) -> Lit (a ** b)
       _ -> Pow e1' e2'
   
-  -- Funciones unarias
+  -- Funciones unarias (aridad 1)
   Sin e -> Sin (optimize e)
   Cos e -> Cos (optimize e)
   Tan e -> Tan (optimize e)

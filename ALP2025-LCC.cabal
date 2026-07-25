@@ -75,7 +75,7 @@ library
     import:           warnings
 
     -- Modules exported by the library.
-    exposed-modules:  Expr, Evaluator, EvalM, Parser, FileReader, PrettyPrinter
+    exposed-modules:  DSL, Expr, Evaluator, EvalM, Parser, FileReader, PrettyPrinter
 
     -- Modules included in this library but not exported.
     -- other-modules:
@@ -102,7 +102,7 @@ executable ALP2025-LCC
     main-is:          Main.hs
 
     -- Modules included in this executable, other than Main.
-    -- other-modules:
+    other-modules:    Console
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:

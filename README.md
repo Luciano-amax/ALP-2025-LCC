@@ -94,9 +94,11 @@ La suite actual tiene 103 casos.
 
 ```text
 app/
-  Main.hs              Entrada del programa.
+  Main.hs              Despacho de argumentos del ejecutable.
+  Console.hs           Interfaz interactiva por consola.
 
 src/
+  DSL.hs               API publica del lenguaje.
   Expr.hs              AST y optimizaciones conservadoras.
   Parser.hs            Parser de expresiones con Parsec.
   Evaluator.hs         Evaluacion escalar y dual.
@@ -119,6 +121,14 @@ docs/
 ```
 
 ## Decisiones de diseno
+
+### Separacion entre lenguaje e interfaz
+
+El modulo `DSL` funciona como punto de entrada del nucleo del trabajo: reexporta el
+AST, el parser, el evaluador, la monada de evaluacion y el pretty printer. El
+ejecutable queda separado en `app/`, donde `Main` solo decide el modo de uso y
+`Console` contiene la interaccion con el usuario. Esta division permite probar y
+razonar sobre el lenguaje sin depender de la consola.
 
 ### Numeros duales
 

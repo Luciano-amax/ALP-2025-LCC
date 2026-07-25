@@ -6,10 +6,7 @@ module FileReader
   ) where
 
 import Text.Parsec
-import Expr
-import Parser
-import Evaluator
-import PrettyPrinter
+import DSL
 import Control.Monad
 import Data.List (mapAccumL)
 import Data.Char (isSpace)

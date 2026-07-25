@@ -349,6 +349,30 @@ testPrettyPrinterBordes = TestList
         Left err -> assertFailure $ testName ++ " no parseo: " ++ show err
         Right parsed -> assertEqual testName (evalWithEnv env expr) (evalWithEnv env parsed)
 
+testRoundTripPrettyParser :: Test
+testRoundTripPrettyParser = TestList $
+  map crearCaso
+    [ ("suma y producto", Add (Var "x") (Mul (Lit 2) (Var "y")))
+    , ("parentesis por precedencia", Mul (Add (Var "x") (Lit 1)) (Sub (Var "y") (Lit 2)))
+    , ("resta asociada a derecha", Sub (Var "x") (Sub (Var "y") (Var "z")))
+    , ("division asociada a derecha", Div (Var "x") (Div (Var "y") (Var "z")))
+    , ("potencia derecha", Pow (Var "x") (Pow (Var "y") (Lit 2)))
+    , ("potencia izquierda", Pow (Pow (Var "x") (Lit 2)) (Lit 3))
+    , ("exponente compuesto", Pow (Var "x") (Add (Var "y") (Lit 1)))
+    , ("base con menos unario", Pow (Sub (Lit 0) (Var "x")) (Lit 2))
+    , ("menos unario antes de potencia", Sub (Lit 0) (Pow (Var "x") (Lit 2)))
+    , ("funcion con potencia", Sin (Pow (Var "x") (Lit 2)))
+    , ("funciones anidadas", Log (Add (Exp (Var "x")) (Lit 1)))
+    , ("sqrt con parentesis internos", Sqrt (Add (Pow (Var "x") (Lit 2)) (Lit 1)))
+    , ("hiperbolicas", Tanh (Sub (Sinh (Var "x")) (Cosh (Var "y"))))
+    , ("funciones inversas hiperbolicas", Add (Arsinh (Var "x")) (Artanh (Div (Var "y") (Lit 2))))
+    ]
+  where
+    crearCaso (testName, expr) = TestCase $
+      case parse parseExpr "" (prettyPrint expr) of
+        Left err -> assertFailure $ testName ++ " no parseo: " ++ show err
+        Right parsed -> assertEqual testName expr parsed
+
 testDerivadasEnBordes :: Test
 testDerivadasEnBordes = TestList
   [ TestCase $ expectDomainError "sqrt(x) en x=0 no tiene derivada finita" (evalDual (Sqrt (Var "x")) 0)
@@ -467,6 +491,7 @@ tests = TestList
   , TestLabel "Validacion de dominios duales" testDominiosDual
   , TestLabel "Parsing complejo" testParsingComplejo
   , TestLabel "Pretty printer en casos borde" testPrettyPrinterBordes
+  , TestLabel "Roundtrip parser pretty printer" testRoundTripPrettyParser
   , TestLabel "Derivadas en bordes de dominio" testDerivadasEnBordes
   , TestLabel "Ejemplos reales" testEjemplosReales
   , TestLabel "Monada de evaluacion" testEvalM

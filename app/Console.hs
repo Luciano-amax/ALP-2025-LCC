@@ -81,12 +81,12 @@ mostrarResultados x evalResult dualResult = do
   let xStr = if x == fromInteger (round x) then show (round x :: Integer) else show x
   putStrLn "+--- Resultados -----------------------------+"
   either
-    (\err -> putStrLn $ "| [X] Error: " ++ show err)
+    (\err -> putStrLn $ "| [X] Error: " ++ mostrarError err)
     (\val -> putStrLn $ "| f(" ++ xStr ++ ") = " ++ show (normalizarCero val))
     evalResult
 
   either
-    (\err -> putStrLn $ "| [X] Error derivada: " ++ show err)
+    (\err -> putStrLn $ "| [X] Error derivada: " ++ mostrarError err)
     (\(Dual _ d) -> putStrLn $ "| f'(" ++ xStr ++ ") = " ++ show (normalizarCero d))
     dualResult
   putStrLn "+--------------------------------------------+"

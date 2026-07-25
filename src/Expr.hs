@@ -1,5 +1,7 @@
 module Expr where
 
+import NumericPolicy
+
 data Expr
   = Lit Double
   | Var String
@@ -22,7 +24,7 @@ data Expr
   | Sqrt Expr
   deriving (Eq, Show)
 
--- Simplifica sin esconder errores que el evaluador deberia reportar.
+-- Invariante: optimizar no debe ocultar errores que el evaluador reportaria.
 optimize :: Expr -> Expr
 optimize expr = case expr of
   Add (Lit a) (Lit b) -> Lit (a + b)
@@ -101,16 +103,3 @@ powDefinida base exponente
 powPlegable :: Double -> Double -> Bool
 powPlegable base exponente =
   powDefinida base exponente && esFinito (base ** exponente)
-
-esEntero :: Double -> Bool
-esEntero x =
-  let redondeado = fromIntegral (round x :: Integer)
-  in if redondeado == 0
-     then x == 0
-     else abs (x - redondeado) < 1e-10
-
-esCasiCero :: Double -> Bool
-esCasiCero x = abs x < 1e-15
-
-esFinito :: Double -> Bool
-esFinito x = not (isNaN x || isInfinite x)

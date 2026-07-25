@@ -3,6 +3,7 @@ module EvalM
   , EvalM
   , EvalResult
   , ErrorType(..)
+  , mostrarError
   , runEvalM
   , throwEval
   , lookupVar
@@ -15,6 +16,14 @@ data ErrorType
   | UndefinedVariable String
   | DomainError String
   deriving (Show, Eq)
+
+mostrarError :: ErrorType -> String
+mostrarError DivideByZero =
+  "Division por cero"
+mostrarError (UndefinedVariable nombre) =
+  "Variable no definida: " ++ nombre
+mostrarError (DomainError detalle) =
+  "Error de dominio: " ++ detalle
 
 type EvalResult = Either ErrorType Double
 type EvalEnv a = [(String, a)]
@@ -48,7 +57,7 @@ instance Monad (EvalM env) where
     runEvalM env (next value)
 
 instance Alternative (EvalM env) where
-  empty = throwEval $ DomainError "empty evaluation"
+  empty = throwEval $ DomainError "evaluacion vacia"
   left <|> right = EvalM $ \env ->
     case runEvalM env left of
       Left _ -> runEvalM env right

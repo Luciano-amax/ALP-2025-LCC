@@ -15,6 +15,7 @@ module DSL
   , prettyPrint
   , prettyPrintOptimized
   , prettyPrintWithParens
+  , mostrarError
   , runEvalM
   , throwEval
   ) where

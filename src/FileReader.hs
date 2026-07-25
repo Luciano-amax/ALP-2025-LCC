@@ -1,6 +1,7 @@
 module FileReader
   ( procesarArchivo
   , parsearLinea
+  , parsearContenido
   , EvaluacionCompleta(..)
   , LineaEvaluacion(..)
   ) where
@@ -47,12 +48,15 @@ parsearLinea linea =
       _ -> case parse parseExpr "" s of
         Right expr -> case evalWithEnv [] expr of
           Right val -> Right val
-          Left err -> Left $ "Valor de x invalido: " ++ show err
+          Left err -> Left $ "Valor de x invalido: " ++ mostrarError err
         Left err -> Left $ "Valor de x invalido: " ++ show err
 
     limpiarComentarios [] = []
     limpiarComentarios ('-':'-':_) = ""
     limpiarComentarios (c:cs) = c : limpiarComentarios cs
+
+parsearContenido :: String -> [Either String LineaEvaluacion]
+parsearContenido contenido = map parsearLinea (lineasEvaluables contenido)
 
 normalizarCero :: Double -> Double
 normalizarCero x = if x == 0 then 0 else x
@@ -113,20 +117,19 @@ evaluarLinea lineNum linea = do
       putStrLn "  ---------------------------------------------"
 
       either
-        (\err -> putStrLn $ "  [X] Error al evaluar: " ++ show err)
+        (\err -> putStrLn $ "  [X] Error al evaluar: " ++ mostrarError err)
         (\val -> putStrLn $ "  [OK] f(" ++ xStr ++ ") = " ++ show (normalizarCero val))
         (resultadoValor resultado)
 
       either
-        (\err -> putStrLn $ "  [X] Error al calcular derivada: " ++ show err)
+        (\err -> putStrLn $ "  [X] Error al calcular derivada: " ++ mostrarError err)
         (\(Dual _ d) -> putStrLn $ "  [OK] f'(" ++ xStr ++ ") = " ++ show (normalizarCero d))
         (resultadoDerivada resultado)
 
 procesarArchivo :: FilePath -> IO ()
 procesarArchivo archivo = do
   contenido <- readFile archivo
-  let lineasFiltradas = filtrarComentariosMultilinea (lines contenido)
-      lineas = filter esLineaValida lineasFiltradas
+  let lineas = lineasEvaluables contenido
       numLineas = length lineas
 
   putStrLn ""
@@ -147,3 +150,8 @@ procesarArchivo archivo = do
   putStrLn "         [OK] PROCESO COMPLETADO"
   putStrLn "==============================================="
   putStrLn ""
+
+lineasEvaluables :: String -> [String]
+lineasEvaluables contenido =
+  let lineasFiltradas = filtrarComentariosMultilinea (lines contenido)
+  in filter esLineaValida lineasFiltradas

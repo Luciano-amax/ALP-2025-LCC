@@ -88,7 +88,7 @@ Comando alternativo util en Windows:
 cabal exec -- runghc -isrc test\TestSuite.hs
 ```
 
-La suite actual tiene 117 casos.
+La suite actual tiene 124 casos.
 
 ## Estructura del proyecto
 
@@ -104,6 +104,7 @@ src/
   Evaluator.hs         Evaluacion escalar y dual.
   EvalM.hs             Monada de evaluacion con entorno y errores.
   FileReader.hs        Procesamiento de archivos.
+  NumericPolicy.hs     Tolerancias y criterios numericos compartidos.
   PrettyPrinter.hs     Impresion legible de expresiones.
 
 test/
@@ -111,6 +112,7 @@ test/
 
 examples/
   *.txt                Casos de entrada para la calculadora.
+  defensa.txt          Casos elegidos para mostrar decisiones del trabajo.
   monada_eval.hs       Ejemplo de uso directo de EvalM.
 
 docs/
@@ -186,7 +188,7 @@ El pretty printer minimiza parentesis, pero debe conservar el significado de la 
 - potencias con base negativa;
 - potencias anidadas;
 - restas y divisiones anidadas a derecha;
-- roundtrip `prettyPrint -> parse -> eval`.
+- roundtrip `prettyPrint -> parse`.
 
 Esta decision evita que la forma impresa de una expresion cambie su significado al volver a parsearla.
 
@@ -212,6 +214,15 @@ x^0 = 1
 ```
 
 Por ejemplo, si `x = 0`, entonces `x/x` debe seguir dando division por cero y `x^0` debe seguir respetando el caso `0^0`.
+
+La invariante del optimizador es que no debe convertir una expresion que falla en
+otra que parezca valida. Por eso se prefieren menos simplificaciones antes que
+perder errores importantes del lenguaje.
+
+### Criterios numericos
+
+Las tolerancias numericas estan centralizadas en `NumericPolicy`. Esto evita que
+el evaluador, el optimizador y las pruebas usen umbrales dispersos sin nombre.
 
 ## Para defender el trabajo
 

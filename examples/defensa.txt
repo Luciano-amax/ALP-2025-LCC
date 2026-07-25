@@ -1,0 +1,27 @@
+-- Casos pensados para mostrar el recorrido completo del DSL.
+-- Formato: expresion @ valor_x
+
+-- Parser, precedencia y derivada por numeros duales.
+sin(x^2) + x @ 1
+
+-- Optimizacion conservadora: x + 0 se simplifica.
+x + 0 @ 5
+
+-- Esta regla se conserva para no esconder el caso 0^0.
+x^0 @ 0
+
+-- Error de dominio en evaluacion.
+sqrt(-1) @ 0
+
+-- Constantes y valor de entrada como expresion constante.
+log(x) + pi @ e
+
+-- Comentario de bloque dentro de una linea.
+(x + {- se ignora -} 1) * 2 @ 3
+
+{- Este bloque completo no deberia generar expresiones.
+   Sirve para mostrar lectura de archivo con comentarios multilinea.
+-}
+
+-- Base para multiples variables mediante entorno explicito, aunque la consola usa x.
+x * x + 2*x + 1 @ 4

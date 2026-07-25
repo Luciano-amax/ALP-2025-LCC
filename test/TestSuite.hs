@@ -2,8 +2,9 @@ module Main (main) where
 
 import Expr                   -- Importamos el AST
 import Evaluator              -- Importamos el Evaluador (incluye eval y evalDual)
-import EvalM (runEvalM, throwEval, lookupVar)
-import FileReader (LineaEvaluacion(..), parsearLinea)
+import EvalM (mostrarError, runEvalM, throwEval, lookupVar)
+import FileReader (LineaEvaluacion(..), parsearContenido, parsearLinea)
+import NumericPolicy (epsilonEntero)
 import Control.Applicative ((<|>))
 import Text.Parsec hiding ((<|>))
 import PrettyPrinter (prettyPrint)
@@ -45,7 +46,7 @@ case4 = TestCase $ do
   case result of
     Right (val, deriv') -> do
       assertEqual "Valor de sin(pi/2)" 1.0 val
-      assertBool "Derivada cercana a 0" (abs deriv' < 1e-10)
+      assertBool "Derivada cercana a 0" (abs deriv' < epsilonEntero)
     Left err -> assertFailure $ "Error inesperado: " ++ show err
 
 -- Caso de prueba 5: Parsing y evaluación combinados
@@ -254,8 +255,8 @@ testNegativePowers = TestList
                      Left err   -> Left $ UndefinedVariable $ "parse error: " ++ show err
       case result of
         Right (val, deriv') -> do
-          assertBool "-x^2 valor cercano a -9" (abs (val + 9.0) < 1e-10)
-          assertBool "-x^2 derivada cercana a -6" (abs (deriv' + 6.0) < 1e-10)
+          assertBool "-x^2 valor cercano a -9" (abs (val + 9.0) < epsilonEntero)
+          assertBool "-x^2 derivada cercana a -6" (abs (deriv' + 6.0) < epsilonEntero)
         Left err -> assertFailure $ "Error en -x^2: " ++ show err
   , TestCase $ do
       -- (-x) * (-x) con x=2 debería dar 4 y derivada 4
@@ -275,7 +276,7 @@ testTrigIdentities = TestList
       let result = evalDual' expr 3
       case result of
         Right (val, deriv') -> do
-          assertBool "Valor cercano a 3" (abs (val - 3.0) < 1e-10)
+          assertBool "Valor cercano a 3" (abs (val - 3.0) < epsilonEntero)
           -- La derivada puede no ser exactamente 1 por errores numéricos
           assertBool "Derivada es número finito" (not $ isNaN deriv' || isInfinite deriv')
         Left err -> assertFailure $ "Error en identidad trigonométrica: " ++ show err
@@ -285,7 +286,7 @@ testTrigIdentities = TestList
       let result = evalDual' expr 0.5
       case result of
         Right (val, deriv') -> do
-          assertBool "sin^2 + cos^2 = 1" (abs (val - 1.0) < 1e-10)
+          assertBool "sin^2 + cos^2 = 1" (abs (val - 1.0) < epsilonEntero)
           assertBool "Derivada es número finito" (not $ isNaN deriv' || isInfinite deriv')
         Left err -> assertFailure $ "Error: " ++ show err
   ]
@@ -319,7 +320,7 @@ testParsingComplejo = TestList
   , TestCase $ do
       let result = parsearLinea "sin(x) @ pi/2"
       case result of
-        Right (LineaEvaluacion _ x) -> assertBool "parsea pi/2 como valor de archivo" (abs (x - pi / 2) < 1e-10)
+        Right (LineaEvaluacion _ x) -> assertBool "parsea pi/2 como valor de archivo" (abs (x - pi / 2) < epsilonEntero)
         Left err -> assertFailure $ "Error inesperado: " ++ err
   , TestCase $ do
       let result = parsearLinea "x + {- comentario -} 1 @ 2"
@@ -329,9 +330,48 @@ testParsingComplejo = TestList
   , TestCase $ do
       let result = parsearLinea "x @ {- comentario -} pi"
       case result of
-        Right (LineaEvaluacion _ x) -> assertBool "ignora comentario de bloque en valor" (abs (x - pi) < 1e-10)
+        Right (LineaEvaluacion _ x) -> assertBool "ignora comentario de bloque en valor" (abs (x - pi) < epsilonEntero)
         Left err -> assertFailure $ "Error inesperado: " ++ err
   ]
+
+testArchivoBordes :: Test
+testArchivoBordes = TestList
+  [ TestCase $ do
+      let result = parsearLinea "   sin( x ) + 1    @    pi / 2   "
+      case result of
+        Right (LineaEvaluacion expr x) ->
+          assertBool "acepta espacios raros y valor pi/2" $
+            abs (x - pi / 2) < epsilonEntero &&
+            eval expr x == Right 2.0
+        Left err -> assertFailure $ "Error inesperado: " ++ err
+  , TestCase $ do
+      let result = parsearLinea "x^2 @ 3 -- comentario inline"
+      case result of
+        Right (LineaEvaluacion expr x) -> assertEqual "ignora comentario inline" (Right 9.0) (eval expr x)
+        Left err -> assertFailure $ "Error inesperado: " ++ err
+  , TestCase $ do
+      let contenido = unlines
+            [ "x + 1 @ 2"
+            , "{- bloque que"
+            , "   ocupa varias lineas -}"
+            , "x * 2 @ 3"
+            ]
+      assertEqual "ignora comentario multilinea" 2 (length (parsearContenido contenido))
+  , TestCase $ do
+      let resultados = parsearContenido "x + * 2 @ 1"
+      case resultados of
+        [Left _] -> return ()
+        other -> assertFailure $ "expresion invalida debia fallar y dio " ++ show other
+  , TestCase $ do
+      let resultados = parsearContenido "sqrt(-1) @ 0"
+      case resultados of
+        [Right (LineaEvaluacion expr x)] -> expectDomainError "sqrt(-1) desde archivo" (eval expr x)
+        other -> assertFailure $ "sqrt(-1) debia parsear y luego fallar por dominio: " ++ show other
+  ]
+  where
+    expectDomainError testName result = case result of
+      Left (DomainError _) -> return ()
+      other -> assertFailure $ testName ++ " esperaba DomainError y obtuvo " ++ show other
 
 testPrettyPrinterBordes :: Test
 testPrettyPrinterBordes = TestList
@@ -398,7 +438,7 @@ testEjemplosReales = TestList
                      Right expr -> eval expr (pi/2)
                      Left _     -> Left $ UndefinedVariable "parse error"
       case result of
-        Right val -> assertBool "sin(pi/2) ≈ 1" (abs (val - 1.0) < 1e-10)
+        Right val -> assertBool "sin(pi/2) ≈ 1" (abs (val - 1.0) < epsilonEntero)
         Left _ -> assertFailure "No debería dar error"
   , TestCase $ do
       let result = case parse parseExpr "" "log(x)" of
@@ -406,8 +446,8 @@ testEjemplosReales = TestList
                      Left _     -> Left $ UndefinedVariable "parse error"
       case result of
         Right (val, deriv') -> do
-          assertBool "log(e) ≈ 1" (abs (val - 1.0) < 1e-10)
-          assertBool "log'(e) ≈ 1/e" (abs (deriv' - 1/(exp 1)) < 1e-10)
+          assertBool "log(e) ≈ 1" (abs (val - 1.0) < epsilonEntero)
+          assertBool "log'(e) ≈ 1/e" (abs (deriv' - 1/(exp 1)) < epsilonEntero)
         Left _ -> assertFailure "No debería dar error"
   , -- De compuestas.txt
     TestCase $ do
@@ -420,7 +460,7 @@ testEjemplosReales = TestList
                      Right expr -> eval expr 1
                      Left _     -> Left $ UndefinedVariable "parse error"
       case result of
-        Right val -> assertBool "sin(1^2) = sin(1)" (abs (val - sin 1) < 1e-10)
+        Right val -> assertBool "sin(1^2) = sin(1)" (abs (val - sin 1) < epsilonEntero)
         Left _ -> assertFailure "No debería dar error"
   , -- De constantes
     TestCase $ do
@@ -429,8 +469,8 @@ testEjemplosReales = TestList
                      Left _     -> Left $ UndefinedVariable "parse error"
       case result of
         Right (val, deriv') -> do
-          assertBool "pi * 1 + e" (abs (val - (pi + exp 1)) < 1e-10)
-          assertBool "derivada = pi" (abs (deriv' - pi) < 1e-10)
+          assertBool "pi * 1 + e" (abs (val - (pi + exp 1)) < epsilonEntero)
+          assertBool "derivada = pi" (abs (deriv' - pi) < epsilonEntero)
         Left _ -> assertFailure "No debería dar error"
   , -- De trigonometricas.txt
     TestCase $ do
@@ -438,7 +478,7 @@ testEjemplosReales = TestList
                      Right expr -> eval expr 0.5
                      Left _     -> Left $ UndefinedVariable "parse error"
       case result of
-        Right val -> assertBool "sin²(x) + cos²(x) = 1" (abs (val - 1.0) < 1e-10)
+        Right val -> assertBool "sin²(x) + cos²(x) = 1" (abs (val - 1.0) < epsilonEntero)
         Left _ -> assertFailure "No debería dar error"
   , -- De hiperbolicas.txt
     TestCase $ do
@@ -446,7 +486,7 @@ testEjemplosReales = TestList
                      Right expr -> eval expr 2
                      Left _     -> Left $ UndefinedVariable "parse error"
       case result of
-        Right val -> assertBool "sinh(2) + cosh(2) = e^2" (abs (val - exp 2) < 1e-10)
+        Right val -> assertBool "sinh(2) + cosh(2) = e^2" (abs (val - exp 2) < epsilonEntero)
         Left _ -> assertFailure "No debería dar error"
   ]
 
@@ -475,6 +515,14 @@ testEvalM = TestList
       assertEqual "Alternative devuelve el error de la segunda opcion si ambas fallan"
         (Left (UndefinedVariable "y") :: Either ErrorType Double)
         (runEvalM [] (throwEval (UndefinedVariable "x") <|> lookupVar "y"))
+  , TestCase $
+      assertEqual "mostrarError formatea division por cero"
+        "Division por cero"
+        (mostrarError DivideByZero)
+  , TestCase $
+      assertEqual "mostrarError formatea variable no definida"
+        "Variable no definida: z"
+        (mostrarError (UndefinedVariable "z"))
   ]
 
 -- Suite de Pruebas
@@ -490,6 +538,7 @@ tests = TestList
   , TestLabel "Validación de dominios" testValidacionDominios
   , TestLabel "Validacion de dominios duales" testDominiosDual
   , TestLabel "Parsing complejo" testParsingComplejo
+  , TestLabel "Archivo en casos borde" testArchivoBordes
   , TestLabel "Pretty printer en casos borde" testPrettyPrinterBordes
   , TestLabel "Roundtrip parser pretty printer" testRoundTripPrettyParser
   , TestLabel "Derivadas en bordes de dominio" testDerivadasEnBordes

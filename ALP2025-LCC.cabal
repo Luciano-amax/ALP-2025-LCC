@@ -128,5 +128,7 @@ test-suite ALP2025-LCC-test
     build-depends:
         base ^>=4.18.3.0,
         ALP2025-LCC,
+        directory,
+        filepath,
         parsec ^>=3.1.16.1,
         HUnit

@@ -88,7 +88,7 @@ Comando alternativo util en Windows:
 cabal exec -- runghc -isrc test\TestSuite.hs
 ```
 
-La suite actual tiene 124 casos.
+La suite actual tiene 125 casos.
 
 ## Estructura del proyecto
 

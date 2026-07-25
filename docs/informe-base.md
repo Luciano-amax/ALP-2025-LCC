@@ -252,7 +252,7 @@ cabal exec -- runghc -isrc test\TestSuite.hs
 Resultado:
 
 ```text
-124 casos, 0 errores, 0 fallos
+125 casos, 0 errores, 0 fallos
 ```
 
 La version final del informe se dejo en `docs/informe-final.tex`, para poder compilarlo aparte a PDF.

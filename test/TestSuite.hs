@@ -6,6 +6,9 @@ import EvalM (mostrarError, runEvalM, throwEval, lookupVar)
 import FileReader (LineaEvaluacion(..), parsearContenido, parsearLinea)
 import NumericPolicy (epsilonEntero)
 import Control.Applicative ((<|>))
+import Control.Monad (forM_)
+import System.Directory (listDirectory)
+import System.FilePath ((</>), takeExtension)
 import Text.Parsec hiding ((<|>))
 import PrettyPrinter (prettyPrint)
 import Parser                 -- Nuestro módulo de parsing
@@ -525,6 +528,32 @@ testEvalM = TestList
         (mostrarError (UndefinedVariable "z"))
   ]
 
+testCasosEjemplo :: Test
+testCasosEjemplo = TestCase $ do
+  archivos <- archivosDeEjemplo
+  assertBool "hay archivos .txt en examples" (not (null archivos))
+  forM_ archivos verificarArchivo
+  where
+    archivosDeEjemplo = do
+      nombres <- listDirectory "examples"
+      pure [ "examples" </> nombre | nombre <- nombres, takeExtension nombre == ".txt" ]
+
+    verificarArchivo archivo = do
+      contenido <- readFile archivo
+      let resultados = parsearContenido contenido
+      assertBool (archivo ++ " debe tener al menos una expresion") (not (null resultados))
+      forM_ (zip [1 :: Int ..] resultados) $ \(nro, resultado) ->
+        case resultado of
+          Left err -> assertFailure $ archivo ++ ", expresion #" ++ show nro ++ " no parseo: " ++ err
+          Right (LineaEvaluacion expr x) ->
+            assertEvaluacionControlada expr x
+
+    assertEvaluacionControlada expr x =
+      case (eval expr x, evalDual expr x) of
+        (Right _, Right _) -> return ()
+        (Left _, _) -> return ()
+        (_, Left _) -> return ()
+
 -- Suite de Pruebas
 tests :: Test
 tests = TestList 
@@ -544,6 +573,7 @@ tests = TestList
   , TestLabel "Derivadas en bordes de dominio" testDerivadasEnBordes
   , TestLabel "Ejemplos reales" testEjemplosReales
   , TestLabel "Monada de evaluacion" testEvalM
+  , TestLabel "Verificacion de Casos de ejemplo" testCasosEjemplo
   ]
 
 -- Ejecutar las pruebas

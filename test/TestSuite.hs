@@ -2,7 +2,11 @@ module Main (main) where
 
 import Expr                   -- Importamos el AST
 import Evaluator              -- Importamos el Evaluador (incluye eval y evalDual)
-import Text.Parsec
+import EvalM (runEvalM, throwEval, lookupVar)
+import FileReader (LineaEvaluacion(..), parsearLinea)
+import Control.Applicative ((<|>))
+import Text.Parsec hiding ((<|>))
+import PrettyPrinter (prettyPrint)
 import Parser                 -- Nuestro módulo de parsing
 import Test.HUnit
 
@@ -139,13 +143,44 @@ testOptimizaciones = TestList
   , TestCase $ assertEqual "0 + x = x" (Var "x") (optimize (Add (Lit 0) (Var "x")))
   , TestCase $ assertEqual "x * 1 = x" (Var "x") (optimize (Mul (Var "x") (Lit 1)))
   , TestCase $ assertEqual "1 * x = x" (Var "x") (optimize (Mul (Lit 1) (Var "x")))
-  , TestCase $ assertEqual "x * 0 = 0" (Lit 0) (optimize (Mul (Var "x") (Lit 0)))
-  , TestCase $ assertEqual "0 * x = 0" (Lit 0) (optimize (Mul (Lit 0) (Var "x")))
+  , TestCase $ assertEqual "x * 0 se conserva para no ocultar errores" (Mul (Var "x") (Lit 0)) (optimize (Mul (Var "x") (Lit 0)))
+  , TestCase $ assertEqual "0 * x se conserva para no ocultar errores" (Mul (Lit 0) (Var "x")) (optimize (Mul (Lit 0) (Var "x")))
+  , TestCase $ assertEqual "0 * 5 = 0" (Lit 0) (optimize (Mul (Lit 0) (Lit 5)))
   , TestCase $ assertEqual "x - 0 = x" (Var "x") (optimize (Sub (Var "x") (Lit 0)))
   , TestCase $ assertEqual "x / 1 = x" (Var "x") (optimize (Div (Var "x") (Lit 1)))
-  , TestCase $ assertEqual "x^0 = 1" (Lit 1) (optimize (Pow (Var "x") (Lit 0)))
+  , TestCase $ assertEqual "x^0 se conserva para no ocultar 0^0" (Pow (Var "x") (Lit 0)) (optimize (Pow (Var "x") (Lit 0)))
   , TestCase $ assertEqual "x^1 = x" (Var "x") (optimize (Pow (Var "x") (Lit 1)))
-  , TestCase $ assertEqual "1^x = 1" (Lit 1) (optimize (Pow (Lit 1) (Var "x")))
+  , TestCase $ assertEqual "1^x se conserva para no ocultar errores del exponente" (Pow (Lit 1) (Var "x")) (optimize (Pow (Lit 1) (Var "x")))
+  , TestCase $ assertEqual "2^0 = 1" (Lit 1) (optimize (Pow (Lit 2) (Lit 0)))
+  ]
+
+testOptimizacionesConservadoras :: Test
+testOptimizacionesConservadoras = TestList
+  [ TestCase $ assertEqual "x/x no se reduce porque x puede ser cero" (Div (Var "x") (Var "x")) (optimize (Div (Var "x") (Var "x")))
+  , TestCase $ assertEqual "x-x no se reduce porque podria ocultar variables sin definir" (Sub (Var "x") (Var "x")) (optimize (Sub (Var "x") (Var "x")))
+  , TestCase $ assertEqual "0 * expr no se reduce si expr puede fallar" (Mul (Lit 0) (Div (Lit 1) (Lit 0))) (optimize (Mul (Lit 0) (Div (Lit 1) (Lit 0))))
+  , TestCase $ assertEqual "0^0 no se pliega" (Pow (Lit 0) (Lit 0)) (optimize (Pow (Lit 0) (Lit 0)))
+  , TestCase $ assertEqual "0^(-1) no se pliega" (Pow (Lit 0) (Lit (-1))) (optimize (Pow (Lit 0) (Lit (-1))))
+  , TestCase $ assertEqual "base negativa con exponente fraccionario no se pliega" (Pow (Lit (-1)) (Lit 0.5)) (optimize (Pow (Lit (-1)) (Lit 0.5)))
+  , TestCase $ assertEqual "division por casi cero no se pliega" (Div (Lit 1) (Lit 1e-20)) (optimize (Div (Lit 1) (Lit 1e-20)))
+  , TestCase $ assertEqual "potencia con base muy chica se pliega como numero no nulo" (Lit (1e-20 ** (-1))) (optimize (Pow (Lit 1e-20) (Lit (-1))))
+  , TestCase $ assertEqual "potencia invalida no se pliega a NaN" (Pow (Lit (-2)) (Lit 1e-20)) (optimize (Pow (Lit (-2)) (Lit 1e-20)))
+  , TestCase $ assertEqual "potencia no finita no se pliega" (Pow (Lit 10) (Lit 400)) (optimize (Pow (Lit 10) (Lit 400)))
+  , TestCase $ do
+      case eval (Pow (Lit (-2)) (Lit 1e-20)) 0 of
+        Left (DomainError _) -> return ()
+        other -> assertFailure $ "base negativa con exponente casi cero debia dar DomainError y dio " ++ show other
+  , TestCase $ do
+      case eval (Pow (Lit 10) (Lit 400)) 0 of
+        Left (DomainError _) -> return ()
+        other -> assertFailure $ "potencia no finita debia dar DomainError y dio " ++ show other
+  , TestCase $ assertEqual "eval optimizado conserva division por cero" (Left DivideByZero) (eval (optimize (Div (Var "x") (Var "x"))) 0)
+  , TestCase $ assertEqual "eval optimizado conserva division por casi cero" (Left DivideByZero) (eval (optimize (Div (Lit 1) (Lit 1e-20))) 0)
+  , TestCase $ assertEqual "x^1 conserva valores muy chicos" (Right 1e-20) (eval (optimize (Pow (Var "x") (Lit 1))) 1e-20)
+  , TestCase $ do
+      case eval (optimize (Pow (Var "x") (Lit 0))) 0 of
+        Left (DomainError _) -> return ()
+        other -> assertFailure $ "x^0 en x=0 debia seguir dando DomainError y dio " ++ show other
   ]
 
 -- Tests de validación de dominios
@@ -184,6 +219,23 @@ testValidacionDominios = TestList
   ]
 
 -- Tests para números negativos con potencias (problemas de NaN)
+-- Validaciones de dominio en el evaluador con numeros duales
+testDominiosDual :: Test
+testDominiosDual = TestList
+  [ TestCase $ expectDomainError "log dual" (evalDual (Log (Lit 0)) 0)
+  , TestCase $ expectDomainError "sqrt dual" (evalDual (Sqrt (Lit (-1))) 0)
+  , TestCase $ expectDomainError "arcosh dual" (evalDual (Arcosh (Lit 0.5)) 0)
+  , TestCase $ expectDomainError "artanh dual" (evalDual (Artanh (Lit 2)) 0)
+  , TestCase $ expectDomainError "0^0 dual" (evalDual (Pow (Lit 0) (Lit 0)) 0)
+  , TestCase $ expectDomainError "base negativa con exponente fraccionario dual" (evalDual (Pow (Lit (-1)) (Lit 0.5)) 0)
+  , TestCase $ expectDomainError "base negativa con exponente casi cero dual" (evalDual (Pow (Lit (-2)) (Lit 1e-20)) 0)
+  , TestCase $ expectDomainError "potencia dual no finita" (evalDual (Pow (Lit 10) (Lit 400)) 0)
+  ]
+  where
+    expectDomainError testName result = case result of
+      Left (DomainError _) -> return ()
+      other -> assertFailure $ testName ++ " esperaba DomainError y obtuvo " ++ show other
+
 testNegativePowers :: Test
 testNegativePowers = TestList
   [ TestCase $ do
@@ -196,14 +248,14 @@ testNegativePowers = TestList
           assertEqual "(-x)^2 derivada en x=3" 6.0 deriv'
         Left err -> assertFailure $ "Error inesperado en (-x)^2: " ++ show err
   , TestCase $ do
-      -- -x^2 parseado como (0-x)^2, derivada es 2x
+      -- Por precedencia matematica, -x^2 se interpreta como -(x^2).
       let result = case parse parseExpr "" "-x^2" of
                      Right expr -> evalDual' expr 3
                      Left err   -> Left $ UndefinedVariable $ "parse error: " ++ show err
       case result of
         Right (val, deriv') -> do
-          assertBool "(-x)^2 valor cercano a 9" (abs (val - 9.0) < 1e-10)
-          assertBool "(-x)^2 derivada cercana a 6" (abs (deriv' - 6.0) < 1e-10)
+          assertBool "-x^2 valor cercano a -9" (abs (val + 9.0) < 1e-10)
+          assertBool "-x^2 derivada cercana a -6" (abs (deriv' + 6.0) < 1e-10)
         Left err -> assertFailure $ "Error en -x^2: " ++ show err
   , TestCase $ do
       -- (-x) * (-x) con x=2 debería dar 4 y derivada 4
@@ -261,7 +313,52 @@ testParsingComplejo = TestList
                      Right expr -> eval expr 2
                      Left _     -> Left $ UndefinedVariable "parse error"
       assertEqual "parsing sqrt(x^2 + 1)" (Right (sqrt 5)) result
+  , TestCase $ do
+      let result = parse parseExpr "" "x + 1 basura"
+      assertBool "rechaza texto sobrante al final" (case result of Left _ -> True; _ -> False)
+  , TestCase $ do
+      let result = parsearLinea "sin(x) @ pi/2"
+      case result of
+        Right (LineaEvaluacion _ x) -> assertBool "parsea pi/2 como valor de archivo" (abs (x - pi / 2) < 1e-10)
+        Left err -> assertFailure $ "Error inesperado: " ++ err
+  , TestCase $ do
+      let result = parsearLinea "x + {- comentario -} 1 @ 2"
+      case result of
+        Right (LineaEvaluacion expr x) -> assertEqual "ignora comentario de bloque en linea" (Right 3.0) (eval expr x)
+        Left err -> assertFailure $ "Error inesperado: " ++ err
+  , TestCase $ do
+      let result = parsearLinea "x @ {- comentario -} pi"
+      case result of
+        Right (LineaEvaluacion _ x) -> assertBool "ignora comentario de bloque en valor" (abs (x - pi) < 1e-10)
+        Left err -> assertFailure $ "Error inesperado: " ++ err
   ]
+
+testPrettyPrinterBordes :: Test
+testPrettyPrinterBordes = TestList
+  [ TestCase $ assertEqual "base negativa en potencia conserva parentesis" "(-1) ^ 2" (prettyPrint (Pow (Lit (-1)) (Lit 2)))
+  , TestCase $ assertEqual "potencia asociada a izquierda conserva parentesis" "(x ^ 2) ^ 3" (prettyPrint (Pow (Pow (Var "x") (Lit 2)) (Lit 3)))
+  , TestCase $ assertEqual "resta anidada a derecha conserva parentesis" "x - (y - z)" (prettyPrint (Sub (Var "x") (Sub (Var "y") (Var "z"))))
+  , TestCase $ assertEqual "division anidada a derecha conserva parentesis" "x / (y / z)" (prettyPrint (Div (Var "x") (Div (Var "y") (Var "z"))))
+  , TestCase $ assertRoundTrip "potencia derecha" (Pow (Var "x") (Pow (Var "y") (Lit 2))) [("x", 2), ("y", 3)]
+  , TestCase $ assertRoundTrip "base potencia compuesta" (Pow (Add (Var "x") (Lit 1)) (Lit 2)) [("x", 2)]
+  , TestCase $ assertRoundTrip "exponente compuesto" (Pow (Var "x") (Add (Var "y") (Lit 1))) [("x", 2), ("y", 3)]
+  ]
+  where
+    assertRoundTrip testName expr env =
+      case parse parseExpr "" (prettyPrint expr) of
+        Left err -> assertFailure $ testName ++ " no parseo: " ++ show err
+        Right parsed -> assertEqual testName (evalWithEnv env expr) (evalWithEnv env parsed)
+
+testDerivadasEnBordes :: Test
+testDerivadasEnBordes = TestList
+  [ TestCase $ expectDomainError "sqrt(x) en x=0 no tiene derivada finita" (evalDual (Sqrt (Var "x")) 0)
+  , TestCase $ expectDomainError "arcosh(x) en x=1 no tiene derivada finita" (evalDual (Arcosh (Var "x")) 1)
+  , TestCase $ expectDomainError "x^(1/2) en x=0 no tiene derivada finita" (evalDual (Pow (Var "x") (Lit 0.5)) 0)
+  ]
+  where
+    expectDomainError testName result = case result of
+      Left (DomainError _) -> return ()
+      other -> assertFailure $ testName ++ " esperaba DomainError y obtuvo " ++ show other
 
 -- Tests de expresiones de ejemplos reales
 testEjemplosReales :: Test
@@ -329,6 +426,33 @@ testEjemplosReales = TestList
         Left _ -> assertFailure "No debería dar error"
   ]
 
+-- Tests de la monada de evaluacion con entorno explicito
+testEvalM :: Test
+testEvalM = TestList
+  [ TestCase $ do
+      let expr = Add (Mul (Var "x") (Var "y")) (Var "y")
+      assertEqual "evalua con x e y en el entorno" (Right 9.0) (evalWithEnv [("x", 2), ("y", 3)] expr)
+  , TestCase $ do
+      let expr = Add (Mul (Var "x") (Var "y")) (Var "y")
+          env = [("x", Dual 2 1), ("y", Dual 3 0)]
+      assertEqual "deriva respecto de x dejando y constante" (Right (Dual 9.0 3.0)) (evalDualWithEnv env expr)
+  , TestCase $ do
+      let expr = Add (Var "x") (Var "z")
+      assertEqual "detecta variables no definidas" (Left (UndefinedVariable "z")) (evalWithEnv [("x", 1)] expr)
+  , TestCase $
+      assertEqual "Alternative prueba una segunda computacion si la primera falla"
+        (Right 2.0 :: Either ErrorType Double)
+        (runEvalM [("x", 2.0)] (lookupVar "z" <|> lookupVar "x"))
+  , TestCase $
+      assertEqual "Alternative conserva el primer resultado exitoso"
+        (Right 2.0 :: Either ErrorType Double)
+        (runEvalM [("x", 2.0), ("y", 3.0)] (lookupVar "x" <|> lookupVar "y"))
+  , TestCase $
+      assertEqual "Alternative devuelve el error de la segunda opcion si ambas fallan"
+        (Left (UndefinedVariable "y") :: Either ErrorType Double)
+        (runEvalM [] (throwEval (UndefinedVariable "x") <|> lookupVar "y"))
+  ]
+
 -- Suite de Pruebas
 tests :: Test
 tests = TestList 
@@ -338,9 +462,14 @@ tests = TestList
   , TestLabel "Potencias con bases negativas" testNegativePowers
   , TestLabel "Identidades trigonométricas" testTrigIdentities
   , TestLabel "Optimizaciones algebraicas" testOptimizaciones
+  , TestLabel "Optimizaciones conservadoras" testOptimizacionesConservadoras
   , TestLabel "Validación de dominios" testValidacionDominios
+  , TestLabel "Validacion de dominios duales" testDominiosDual
   , TestLabel "Parsing complejo" testParsingComplejo
+  , TestLabel "Pretty printer en casos borde" testPrettyPrinterBordes
+  , TestLabel "Derivadas en bordes de dominio" testDerivadasEnBordes
   , TestLabel "Ejemplos reales" testEjemplosReales
+  , TestLabel "Monada de evaluacion" testEvalM
   ]
 
 -- Ejecutar las pruebas
@@ -362,4 +491,4 @@ main = do
   putStrLn "=========================================="
   if errors counts' + failures counts' == 0
     then putStrLn "[OK] TODOS LOS TESTS PASARON" >> return ()
-    else putStrLn "[X] ALGUNOS TESTS FALLARON" >> return () --Revisar especificacion de errores
+    else putStrLn "[X] ALGUNOS TESTS FALLARON" >> return ()

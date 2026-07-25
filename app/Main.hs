@@ -20,12 +20,12 @@ main = do
     ["-h"] -> mostrarAyuda
     [] -> modoInteractivo
     _ -> do
-      putStrLn "Error: Argumentos inválidos"
+      putStrLn "Error: Argumentos invalidos"
       mostrarAyuda
 
 mostrarAyuda :: IO ()
 mostrarAyuda = do
-  putStrLn "=== Evaluador de Expresiones Matemáticas ==="
+  putStrLn "=== Evaluador de Expresiones Matematicas ==="
   putStrLn ""
   putStrLn "Uso:"
   putStrLn "  ALP2025-LCC              - Modo interactivo"
@@ -34,7 +34,7 @@ mostrarAyuda = do
   putStrLn "  ALP2025-LCC --help       - Mostrar esta ayuda"
   putStrLn ""
   putStrLn "Formato del archivo:"
-  putStrLn "  expresión @ valor_x"
+  putStrLn "  expresion @ valor_x"
   putStrLn "  -- Los comentarios comienzan con --"
   putStrLn ""
   putStrLn "Ejemplo:"
@@ -42,8 +42,8 @@ mostrarAyuda = do
   putStrLn "  log(x) * cos(x) @ 2.0"
   putStrLn ""
   putStrLn "Funciones soportadas:"
-  putStrLn "  Trigonométricas: sin, cos, tan"
-  putStrLn "  Hiperbólicas: sinh, cosh, tanh, arsinh, arcosh, artanh"
+  putStrLn "  Trigonometricas: sin, cos, tan"
+  putStrLn "  Hiperbolicas: sinh, cosh, tanh, arsinh, arcosh, artanh"
   putStrLn "  Otras: exp, log"
   putStrLn "  Constantes: pi, e"
 
@@ -104,19 +104,18 @@ evaluarEntrada expr = do
       mostrarResultados x evalResult dualResult
       putStrLn ""
 
--- Parsea un valor que puede ser un número o una expresión constante (pi, e, 2*pi, etc.)
+-- Parsea un valor numerico o una expresion constante.
 parsearValor :: String -> Maybe Double
 parsearValor s = 
   case safeRead s of
     Just x -> Just x
     Nothing -> case parse parseExpr "" s of
-      Right expr -> case eval expr 0 of  -- Evaluar en x=0 para obtener constantes
+      Right expr -> case eval expr 0 of
         Right val -> Just val
         Left _ -> Nothing
       Left _ -> Nothing
 
--- Normaliza -0.0 a 0.0 para evitar doble representacion
---(Revisar teoria de IEEE754 -> ARqui)
+-- Normaliza -0.0 a 0.0 para evitar doble representacion.
 normalizarCero :: Double -> Double
 normalizarCero x = if x == 0 then 0 else x
 

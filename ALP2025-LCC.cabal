@@ -23,13 +23,13 @@ name:               ALP2025-LCC
 version:            0.1.0.0
 
 -- A short (one-line) description of the package.
-synopsis:           Evaluador de expresiones matemáticas con diferenciación automática
+synopsis:           Evaluador de expresiones matematicas con diferenciacion automatica
 
 -- A longer description of the package.
 description: 
-  Este proyecto implementa un evaluador de expresiones matemáticas que soporta
-  operaciones aritméticas, funciones trigonométricas, hiperbólicas, logarítmicas
-  y exponenciales.  Además, calcula derivadas automáticamente usando números duales
+  Este proyecto implementa un evaluador de expresiones matematicas que soporta
+  operaciones aritmeticas, funciones trigonometricas, hiperbolicas, logaritmicas
+  y exponenciales.  Ademas, calcula derivadas automaticamente usando numeros duales
   (automatic differentiation). Incluye un parser robusto y una suite completa de tests.
 
 -- The license under which the package is released.
@@ -51,9 +51,21 @@ build-type:         Simple
 
 -- Extra doc files to be distributed with the package, such as a CHANGELOG or a README.
 extra-doc-files:    CHANGELOG.md
+                    README.md
+                    "docs/Dual Numbers - Guide.pdf"
+                    "docs/Dual Numbers - Informe.pdf"
+                    docs/informe-final.tex
+                    docs/monadas-y-evaluacion.md
+                    docs/informe-base.md
 
--- Extra source files to be distributed with the package, such as examples, or a tutorial module.
--- extra-source-files:
+-- Material de prueba y ejemplos que acompana a la entrega.
+extra-source-files: examples/*.txt
+                    examples/monada_eval.hs
+                    test/prueba.txt
+
+source-repository head
+    type: git
+    location: https://github.com/Luciano-amax/ALP-2025-LCC.git
 
 common warnings
     ghc-options: -Wall
@@ -63,7 +75,7 @@ library
     import:           warnings
 
     -- Modules exported by the library.
-    exposed-modules:  Expr, Evaluator, Parser, FileReader, PrettyPrinter
+    exposed-modules:  Expr, Evaluator, EvalM, Parser, FileReader, PrettyPrinter
 
     -- Modules included in this library but not exported.
     -- other-modules:

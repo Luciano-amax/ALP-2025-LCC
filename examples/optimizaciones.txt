@@ -8,7 +8,8 @@ x + 0 @ 5
 x * 1 @ 3
 1 * x @ 3
 
--- Anulación multiplicativa
+-- Casos conservadores: se evaluan, pero no siempre conviene simplificarlos
+-- porque podrian ocultar errores de dominio.
 x * 0 @ 7
 0 * x @ 7
 
@@ -18,13 +19,13 @@ x - 0 @ 4
 -- Identidad de división
 x / 1 @ 6
 
--- Potencias especiales
+-- Potencias especiales. x^0 y 1^x se conservan para respetar casos como 0^0.
 x^0 @ 8
 x^1 @ 8
 1^x @ 8
 0^x @ 2
 
--- Constantes evaluadas
+-- Constantes evaluadas: aca si se pueden plegar sin cambiar errores.
 2 + 3 @ 0
 5 * 4 @ 0
 10 - 3 @ 0

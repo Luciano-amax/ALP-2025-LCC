@@ -1,0 +1,347 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[spanish,es-nodecimaldot]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+
+\geometry{margin=2.5cm}
+
+\lstdefinestyle{haskell}{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  columns=fullflexible,
+  keepspaces=true,
+  keywordstyle=\color{blue!60!black},
+  commentstyle=\color{green!40!black},
+  stringstyle=\color{red!50!black}
+}
+
+\lstset{style=haskell}
+
+\title{Evaluador de expresiones con números duales}
+\author{Luciano David Duarte}
+\date{Análisis de Lenguajes de Programación \\ Licenciatura en Ciencias de la Computación -- UNR}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Este trabajo implementa un lenguaje pequeño para escribir expresiones matemáticas y evaluarlas en un punto. Además de calcular el valor de la expresión, el sistema calcula su derivada usando números duales, una técnica de diferenciación automática. El proyecto comenzó como un DSL/EDSL centrado en números duales y luego se extendió hacia una calculadora de expresiones, con parser, procesamiento de archivos, manejo explícito de errores, optimizaciones conservadoras y una mónada propia de evaluación.
+\end{abstract}
+
+\section{Introducción}
+
+El objetivo principal del proyecto es mostrar cómo representar y evaluar expresiones matemáticas en Haskell. La idea inicial fue construir una herramienta acotada para expresar funciones en una variable y observar el comportamiento de los números duales. Con el avance del trabajo se agregaron funcionalidades de calculadora, pero el eje conceptual sigue siendo la diferenciación automática.
+
+El proyecto no busca ser un sistema de álgebra computacional completo. En particular, no implementa derivación simbólica general ni integración. La decisión fue mantener un alcance razonable para la materia y concentrar el esfuerzo en robustez, claridad del AST, evaluación segura y conexión con los contenidos de mónadas.
+
+\section{Objetivos}
+
+Los objetivos principales son:
+
+\begin{itemize}
+  \item representar expresiones matemáticas mediante un tipo algebraico;
+  \item parsear expresiones desde texto;
+  \item evaluar expresiones en un valor de la variable principal;
+  \item calcular derivadas usando números duales;
+  \item manejar errores de dominio sin depender de excepciones parciales;
+  \item incorporar una mónada propia vinculada con los temas de la cátedra.
+\end{itemize}
+
+Como objetivos secundarios se buscó ordenar el código para futuras extensiones, documentar las decisiones de diseño y dejar una base parcial para múltiples variables a nivel de API.
+
+\section{Representación de expresiones}
+
+Las expresiones se representan con el tipo \texttt{Expr}. Es un tipo algebraico que incluye literales, variables, operadores binarios y funciones unarias.
+
+\begin{lstlisting}
+data Expr
+  = Lit Double
+  | Var String
+  | Add Expr Expr
+  | Sub Expr Expr
+  | Mul Expr Expr
+  | Div Expr Expr
+  | Pow Expr Expr
+  | Sin Expr
+  | Cos Expr
+  | Log Expr
+  | Exp Expr
+  | Sqrt Expr
+\end{lstlisting}
+
+Esta representación permite recorrer el árbol por pattern matching. Esa es una ventaja importante de Haskell para implementar un DSL de este estilo, porque las reglas de evaluación quedan escritas directamente sobre la estructura sintáctica.
+
+\section{Parser}
+
+El parser se implementa con Parsec. Se definió un lexer para reconocer operadores, literales, identificadores, constantes y funciones reservadas. La precedencia usada es:
+
+\[
+\text{potencia} > \text{menos unario} > \text{multiplicación/división} > \text{suma/resta}
+\]
+
+Una mejora importante fue exigir que el parser consuma toda la entrada. Por ejemplo, una cadena como:
+
+\begin{lstlisting}
+x + 1 basura
+\end{lstlisting}
+
+se rechaza en vez de aceptarse parcialmente. Esto evita resultados inesperados y vuelve el lenguaje más estricto.
+
+También se corrigió la interpretación de \texttt{-x\^{}2}. Actualmente se parsea como:
+
+\[
+-(x^2)
+\]
+
+lo cual coincide con la convención matemática usual.
+
+\section{Números duales}
+
+Un número dual tiene la forma:
+
+\[
+a + b\varepsilon
+\]
+
+donde:
+
+\[
+\varepsilon^2 = 0
+\]
+
+Si se evalúa una función diferenciable en \(x + \varepsilon\), se obtiene:
+
+\[
+f(x + \varepsilon) = f(x) + f'(x)\varepsilon
+\]
+
+En el código se representa con:
+
+\begin{lstlisting}
+data Dual = Dual
+  { primal :: Double
+  , deriv  :: Double
+  }
+\end{lstlisting}
+
+La parte \texttt{primal} almacena el valor de la función y la parte \texttt{deriv} almacena la derivada. Por ejemplo, para derivar respecto de \(x\), se evalúa la expresión usando el dual \texttt{Dual x 1}.
+
+\section{Evaluación escalar y evaluación dual}
+
+El sistema ofrece dos caminos de evaluación:
+
+\begin{lstlisting}
+eval :: Expr -> Double -> Either ErrorType Double
+evalDual :: Expr -> Double -> Either ErrorType Dual
+\end{lstlisting}
+
+\texttt{eval} calcula únicamente el valor numérico. \texttt{evalDual} calcula valor y derivada en una sola pasada usando números duales.
+
+Además se agregaron versiones con entorno:
+
+\begin{lstlisting}
+evalWithEnv :: EvalEnv Double -> Expr -> Either ErrorType Double
+evalDualWithEnv :: EvalEnv Dual -> Expr -> Either ErrorType Dual
+\end{lstlisting}
+
+Esto permite evaluar expresiones con más variables desde la API. El modo interactivo y el modo archivo siguen centrados en la variable \texttt{x}, pero el diseño ya no queda completamente atado a una única variable.
+
+\section{Mónada de evaluación}
+
+Para ordenar el manejo de errores y de variables se incorporó una mónada propia:
+
+\begin{lstlisting}
+newtype EvalM env a =
+  EvalM (EvalEnv env -> Either ErrorType a)
+\end{lstlisting}
+
+Conceptualmente, una computación \texttt{EvalM env a}:
+
+\begin{itemize}
+  \item lee un entorno de variables;
+  \item puede fallar con un \texttt{ErrorType};
+  \item si no falla, produce un valor de tipo \texttt{a}.
+\end{itemize}
+
+En términos de la materia, combina una idea similar a \texttt{Reader} con una idea similar a \texttt{Either}. No se usó un transformador de mónadas porque para el alcance del trabajo era más claro implementar el tipo propio y mostrar directamente sus instancias.
+
+La función que ejecuta la computación es:
+
+\begin{lstlisting}
+runEvalM :: EvalEnv env -> EvalM env a -> Either ErrorType a
+\end{lstlisting}
+
+También se agregó una instancia \texttt{Alternative}. Esto permite expresar computaciones con respaldo:
+
+\begin{lstlisting}
+lookupVar "z" <|> lookupVar "x"
+\end{lstlisting}
+
+Si la primera búsqueda falla, se intenta la segunda en el mismo entorno. Esta operación no cambia el lenguaje de usuario, pero deja una herramienta simple para expresar fallbacks internos manteniendo errores tipados con \texttt{ErrorType}.
+
+\section{Manejo de errores}
+
+Los errores se representan con:
+
+\begin{lstlisting}
+data ErrorType
+  = DivideByZero
+  | UndefinedVariable String
+  | DomainError String
+\end{lstlisting}
+
+Esto permite distinguir división por cero, variables no definidas y errores de dominio. El evaluador evita depender de funciones parciales en los caminos principales. Por ejemplo, \texttt{log(0)} devuelve un \texttt{DomainError} en vez de cortar la ejecución con una excepción.
+
+Para números duales se agregaron funciones seguras:
+
+\begin{itemize}
+  \item \texttt{safeLogDual};
+  \item \texttt{safeSqrtDual};
+  \item \texttt{safeAcoshDual};
+  \item \texttt{safeAtanhDual};
+  \item \texttt{safePowDual}.
+\end{itemize}
+
+Estas funciones controlan casos delicados como derivadas no finitas, bases negativas con exponentes no enteros y potencias cuyo resultado sería \texttt{NaN} o infinito.
+
+\section{Pretty printer}
+
+El pretty printer imprime expresiones minimizando paréntesis, pero sin cambiar el significado. Para eso se trabaja con niveles de precedencia y se distingue cuándo una subexpresión debe imprimirse como base, factor o expresión completa.
+
+En nuestro caso se agregaron casos de borde para evitar impresiones ambiguas:
+
+\begin{itemize}
+  \item potencias con base negativa;
+  \item potencias anidadas;
+  \item restas anidadas a derecha;
+  \item divisiones anidadas a derecha.
+\end{itemize}
+
+Además se agregaron tests de roundtrip: se imprime una expresión, se vuelve a parsear y se compara su evaluación. Esto sirve para comprobar que la impresión no altera el árbol semántico.
+
+\section{Optimización conservadora}
+
+El módulo \texttt{Expr} incluye una función \texttt{optimize} con reglas algebraicas simples:
+
+\begin{lstlisting}
+x + 0 = x
+x * 1 = x
+x / 1 = x
+x^1 = x
+2 + 3 = 5
+2^3 = 8
+\end{lstlisting}
+
+La optimización es conservadora. No aplica reglas como:
+
+\begin{lstlisting}
+x / x = 1
+x * 0 = 0
+x^0 = 1
+1^x = 1
+\end{lstlisting}
+
+Aunque esas identidades pueden ser válidas bajo ciertas hipótesis, en el evaluador podrían ocultar errores. Por ejemplo, si \(x = 0\), entonces \(x/x\) debe seguir dando división por cero y \(x^0\) debe seguir respetando el caso \(0^0\).
+
+\section{Procesamiento de archivos}
+
+El modo archivo usa líneas del tipo:
+
+\begin{lstlisting}
+expresion @ valor
+\end{lstlisting}
+
+Por ejemplo:
+
+\begin{lstlisting}
+sin(x) @ pi/2
+x^2 + 2*x + 1 @ 3
+\end{lstlisting}
+
+El valor a la derecha de \texttt{@} puede ser un número o una expresión constante. También se soportan comentarios de línea y comentarios de bloque, lo que facilita escribir archivos de prueba más claros.
+
+\section{Comparación con un CAS simbólico}
+
+Un sistema de álgebra computacional suele apuntar a un alcance más amplio, con derivación simbólica, integración, simplificaciones avanzadas y manipulación algebraica general.
+
+Este proyecto toma una dirección más acotada:
+
+\begin{itemize}
+  \item se enfoca en diferenciación automática;
+  \item evita convertirse en un CAS completo;
+  \item usa números duales como técnica central;
+  \item usa mónadas para ordenar errores y entorno.
+\end{itemize}
+
+Esta diferencia de alcance es importante. Implementar un CAS completo haría crecer mucho el trabajo y desviaría el eje original presentado, que estaba centrado en números duales y diferenciación automática.
+
+\section{Tests y validación}
+
+La suite de tests cubre:
+
+\begin{itemize}
+  \item evaluación básica;
+  \item evaluación dual;
+  \item parser;
+  \item funciones trigonométricas e hiperbólicas;
+  \item constantes;
+  \item errores de dominio;
+  \item potencias con bases negativas;
+  \item optimizaciones conservadoras;
+  \item pretty printer;
+  \item uso de \texttt{EvalM};
+  \item procesamiento de valores constantes y comentarios en archivos.
+\end{itemize}
+
+La validación actual incluye:
+
+\begin{lstlisting}
+cabal check
+cabal build all
+cabal test
+cabal exec -- runghc -isrc test\TestSuite.hs
+cabal sdist
+\end{lstlisting}
+
+La suite actual contiene 103 casos, sin errores ni fallos.
+
+\section{Limitaciones}
+
+Las principales limitaciones actuales son:
+
+\begin{itemize}
+  \item no hay derivación simbólica general;
+  \item no hay integración;
+  \item las simplificaciones son básicas;
+  \item el modo interactivo y el modo archivo siguen centrados en la variable \texttt{x};
+  \item el soporte multivariable existe parcialmente en la API, no como lenguaje completo de usuario.
+\end{itemize}
+
+\section{Trabajo futuro}
+
+Posibles extensiones:
+
+\begin{itemize}
+  \item permitir elegir variable de derivación desde la entrada de usuario;
+  \item extender el formato de archivo para entornos multivariables;
+  \item mejorar mensajes de error;
+  \item agregar tests automáticos para todos los archivos de ejemplo;
+  \item sumar más funciones matemáticas si el alcance lo justifica.
+\end{itemize}
+
+\section{Conclusión}
+
+El proyecto muestra cómo representar y evaluar un lenguaje pequeño de expresiones matemáticas en Haskell. La diferenciación automática con números duales permite calcular valor y derivada en una sola pasada. La incorporación de \texttt{EvalM} ordena el manejo de errores y del entorno, y conecta el trabajo con el estudio de mónadas de la materia.
+
+El alcance final es acotado pero defendible: no intenta resolver álgebra simbólica completa, sino presentar un DSL/EDSL chico, testeado, robusto y con decisiones de diseño claras.
+
+\end{document}

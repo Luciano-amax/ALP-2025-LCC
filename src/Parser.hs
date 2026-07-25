@@ -6,31 +6,29 @@ import qualified Text.Parsec.Token as Token
 import Text.Parsec.Language (emptyDef)
 import Expr
 
--- Definición del analizador léxico
 algebraDef :: Token.LanguageDef st
 algebraDef = emptyDef
-  { Token.commentLine     = "--"
-  , Token.commentStart    = "{-"
-  , Token.commentEnd      = "-}"
-  , Token.identStart      = letter
-  , Token.identLetter     = letter
-  , Token.opStart         = oneOf "+-*/^"
-  , Token.opLetter        = oneOf "+-*/^"
-  , Token.reservedNames   = [ "sin", "cos", "tan"
-                            , "sinh", "cosh", "tanh"
-                            , "arsinh", "arcosh", "artanh"
-                            , "sqrt", "exp", "log"
-                            , "pi", "e"
-                            ]
+  { Token.commentLine = "--"
+  , Token.commentStart = "{-"
+  , Token.commentEnd = "-}"
+  , Token.identStart = letter
+  , Token.identLetter = letter
+  , Token.opStart = oneOf "+-*/^"
+  , Token.opLetter = oneOf "+-*/^"
+  , Token.reservedNames =
+      [ "sin", "cos", "tan"
+      , "sinh", "cosh", "tanh"
+      , "arsinh", "arcosh", "artanh"
+      , "sqrt", "exp", "log"
+      , "pi", "e"
+      ]
   , Token.reservedOpNames = ["+", "-", "*", "/", "^"]
-  , Token.caseSensitive   = True
+  , Token.caseSensitive = True
   }
 
--- TokenParser con funciones auxiliares
 lexer :: Token.TokenParser st
 lexer = Token.makeTokenParser algebraDef
 
--- Funciones auxiliares del TokenParser
 lexeme :: Parser a -> Parser a
 lexeme = Token.lexeme lexer
 
@@ -55,86 +53,73 @@ identifier = Token.identifier lexer
 whiteSpace :: Parser ()
 whiteSpace = Token.whiteSpace lexer
 
--- Parser de literales numéricos (enteros o flotantes)
 parseLit :: Parser Expr
 parseLit = lexeme $ do
-  sign <- optionMaybe (char '-')
   num <- try float <|> (fromInteger <$> natural)
-  let value = case sign of
-                Just _  -> -num
-                Nothing -> num
-  return $ Lit value
+  pure $ Lit num
 
--- Parser de constantes matemáticas
 parseConstant :: Parser Expr
-parseConstant = 
-  (reserved "pi" >> return (Lit pi)) <|>
-  (reserved "e" >> return (Lit (exp 1)))
+parseConstant =
+  (reserved "pi" >> pure (Lit pi)) <|>
+  (reserved "e" >> pure (Lit (exp 1)))
 
--- Parser de variables
 parseVar :: Parser Expr
 parseVar = Var <$> identifier
 
--- Parsea funciones unarias (ahora con reserved)
 parseUnary :: Parser Expr
 parseUnary = do
   func <- choice
-    [ try (reserved "arsinh") >> return Arsinh
-    , try (reserved "arcosh") >> return Arcosh
-    , try (reserved "artanh") >> return Artanh
-    , try (reserved "sinh")  >> return Sinh
-    , try (reserved "cosh")  >> return Cosh
-    , try (reserved "tanh")  >> return Tanh
-    , try (reserved "sqrt")  >> return Sqrt
-    , try (reserved "sin")   >> return Sin
-    , try (reserved "cos")   >> return Cos
-    , try (reserved "tan")   >> return Tan
-    , try (reserved "exp")   >> return Exp
-    , try (reserved "log")   >> return Log
+    [ try (reserved "arsinh") >> pure Arsinh
+    , try (reserved "arcosh") >> pure Arcosh
+    , try (reserved "artanh") >> pure Artanh
+    , try (reserved "sinh") >> pure Sinh
+    , try (reserved "cosh") >> pure Cosh
+    , try (reserved "tanh") >> pure Tanh
+    , try (reserved "sqrt") >> pure Sqrt
+    , try (reserved "sin") >> pure Sin
+    , try (reserved "cos") >> pure Cos
+    , try (reserved "tan") >> pure Tan
+    , try (reserved "exp") >> pure Exp
+    , try (reserved "log") >> pure Log
     ]
-  arg <- parens parseExpr
-  return $ func arg
+  func <$> parens parseAddSub
 
--- Convierte -expr en (0 - expr), evitando conflicto con literales negativos
+-- El menos unario queda por debajo de la potencia: -x^2 = -(x^2).
 parseNeg :: Parser Expr
-parseNeg = lexeme $ do
-  _ <- char '-'
-  notFollowedBy digit
-  expr <- parseTerm
-  return $ Sub (Lit 0) expr
+parseNeg = do
+  reservedOp "-"
+  expr <- parsePrefix
+  pure $ Sub (Lit 0) expr
 
--- Términos (elementos atómicos)
-parseTerm :: Parser Expr
-parseTerm = try parseUnary 
-        <|> try parseConstant 
-        <|> try parseLit 
-        <|> try parseNeg 
-        <|> parseVar 
-        <|> parens parseExpr
+parseAtom :: Parser Expr
+parseAtom = try parseUnary
+        <|> try parseConstant
+        <|> try parseLit
+        <|> parseVar
+        <|> parens parseAddSub
 
--- Potencias (asociatividad derecha)
+parsePrefix :: Parser Expr
+parsePrefix = try parseNeg <|> parsePow
+
 parsePow :: Parser Expr
 parsePow = do
-  base <- parseTerm
+  base <- parseAtom
   option base $ do
     reservedOp "^"
-    expnt <- parsePow
-    return $ Pow base expnt
+    expnt <- parsePrefix
+    pure $ Pow base expnt
 
--- Multiplicación y división
 parseMulDiv :: Parser Expr
-parseMulDiv = chainl1 parsePow (mulOp <|> divOp)
+parseMulDiv = chainl1 parsePrefix (mulOp <|> divOp)
   where
-    mulOp = reservedOp "*" >> return Mul
-    divOp = reservedOp "/" >> return Div
+    mulOp = reservedOp "*" >> pure Mul
+    divOp = reservedOp "/" >> pure Div
 
--- Suma y resta
 parseAddSub :: Parser Expr
 parseAddSub = chainl1 parseMulDiv (addOp <|> subOp)
   where
-    addOp = reservedOp "+" >> return Add
-    subOp = reservedOp "-" >> return Sub
+    addOp = reservedOp "+" >> pure Add
+    subOp = reservedOp "-" >> pure Sub
 
--- Parser principal
 parseExpr :: Parser Expr
-parseExpr = whiteSpace >> parseAddSub
+parseExpr = whiteSpace >> parseAddSub <* eof

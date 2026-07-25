@@ -69,7 +69,7 @@ prettyPrintPrec prec (Div e1 e2) =
 
 prettyPrintPrec prec (Pow e1 e2) =
     parenthesize (prec < PrecPow) $
-        prettyPrintPrec PrecPow e1 ++ " ^ " ++ prettyPrintPrec PrecAtom e2
+        prettyPrintPowBase e1 ++ " ^ " ++ prettyPrintPrec PrecAtom e2
 
 prettyPrintPrec _ (Sin e) = "sin(" ++ prettyPrintPrec PrecTop e ++ ")"
 prettyPrintPrec _ (Cos e) = "cos(" ++ prettyPrintPrec PrecTop e ++ ")"
@@ -94,3 +94,10 @@ showNumber n
 parenthesize :: Bool -> String -> String
 parenthesize True s = "(" ++ s ++ ")"
 parenthesize False s = s
+
+prettyPrintPowBase :: Expr -> String
+prettyPrintPowBase expr@(Lit n)
+    | n < 0 = "(" ++ showNumber n ++ ")"
+    | otherwise = prettyPrintPrec PrecPow expr
+prettyPrintPowBase expr@(Pow _ _) = "(" ++ prettyPrintPrec PrecTop expr ++ ")"
+prettyPrintPowBase expr = prettyPrintPrec PrecPow expr

@@ -22,34 +22,15 @@ data Expr
   | Sqrt Expr
   deriving (Eq, Show)
 
--- Simplifica expresiones aplicando identidades algebraicas en un solo pase
--- Podriamos extender a simplificaciones del estilo 4x + 4x = 8x (Revisar y Decidir) (Func nueva)
+-- Simplifica sin esconder errores que el evaluador deberia reportar.
 optimize :: Expr -> Expr
 optimize expr = case expr of
-  Add (Lit 0) e -> optimize e
-  Add e (Lit 0) -> optimize e
-  
-  Mul (Lit 1) e -> optimize e
-  Mul e (Lit 1) -> optimize e
-  
-  Mul (Lit 0) _ -> Lit 0
-  Mul _ (Lit 0) -> Lit 0
-  
-  Sub e (Lit 0) -> optimize e
-  Sub e1 e2 | e1 == e2 -> Lit 0
-  
-  Div e (Lit 1) -> optimize e
-  Div e1 e2 | e1 == e2 -> Lit 1
-  
-  Pow _ (Lit 0) -> Lit 1
-  Pow e (Lit 1) -> optimize e
-  Pow (Lit 1) _ -> Lit 1
-  
   Add (Lit a) (Lit b) -> Lit (a + b)
   Sub (Lit a) (Lit b) -> Lit (a - b)
   Mul (Lit a) (Lit b) -> Lit (a * b)
-  Div (Lit a) (Lit b) | b /= 0 -> Lit (a / b)
-  Pow (Lit a) (Lit b) -> Lit (a ** b)
+  Div (Lit a) (Lit b) | not (esCasiCero b) -> Lit (a / b)
+  Pow (Lit a) (Lit b)
+    | powPlegable a b -> Lit (a ** b)
   
   Add e1 e2 -> 
     let e1' = optimize e1
@@ -65,7 +46,6 @@ optimize expr = case expr of
         e2' = optimize e2
     in case (e1', e2') of
       (_, Lit 0) -> e1'
-      _ | e1' == e2' -> Lit 0
       (Lit a, Lit b) -> Lit (a - b)
       _ -> Sub e1' e2'
                   
@@ -73,8 +53,6 @@ optimize expr = case expr of
     let e1' = optimize e1
         e2' = optimize e2
     in case (e1', e2') of
-      (Lit 0, _) -> Lit 0
-      (_, Lit 0) -> Lit 0
       (Lit 1, _) -> e2'
       (_, Lit 1) -> e1'
       (Lit a, Lit b) -> Lit (a * b)
@@ -85,19 +63,16 @@ optimize expr = case expr of
         e2' = optimize e2
     in case (e1', e2') of
       (_, Lit 1) -> e1'
-      _ | e1' == e2' -> Lit 1
-      (Lit a, Lit b) | b /= 0 -> Lit (a / b)
+      (Lit a, Lit b) | not (esCasiCero b) -> Lit (a / b)
       _ -> Div e1' e2'
                   
   Pow e1 e2 -> 
     let e1' = optimize e1
         e2' = optimize e2
     in case (e1', e2') of
-      (Lit 0, _) -> Lit 0
-      (_, Lit 0) -> Lit 1
+      (Lit a, Lit 0) | a /= 0 -> Lit 1
       (_, Lit 1) -> e1'
-      (Lit 1, _) -> Lit 1
-      (Lit a, Lit b) -> Lit (a ** b)
+      (Lit a, Lit b) | powPlegable a b -> Lit (a ** b)
       _ -> Pow e1' e2'
   
   -- Funciones unarias (aridad 1)
@@ -116,3 +91,26 @@ optimize expr = case expr of
   
   -- Literales y variables no se optimizan
   _ -> expr
+
+powDefinida :: Double -> Double -> Bool
+powDefinida base exponente
+  | base == 0 && exponente <= 0 = False
+  | base < 0 && not (esEntero exponente) = False
+  | otherwise = True
+
+powPlegable :: Double -> Double -> Bool
+powPlegable base exponente =
+  powDefinida base exponente && esFinito (base ** exponente)
+
+esEntero :: Double -> Bool
+esEntero x =
+  let redondeado = fromIntegral (round x :: Integer)
+  in if redondeado == 0
+     then x == 0
+     else abs (x - redondeado) < 1e-10
+
+esCasiCero :: Double -> Bool
+esCasiCero x = abs x < 1e-15
+
+esFinito :: Double -> Bool
+esFinito x = not (isNaN x || isInfinite x)

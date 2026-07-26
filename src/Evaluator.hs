@@ -19,70 +19,84 @@ eval expr x = evalWithEnv [("x", x)] expr
 evalWithEnv :: EvalEnv Double -> Expr -> EvalResult
 evalWithEnv env expr = runEvalM env (evalM expr)
 
+-- Interpretacion escalar: calcula solo el valor numerico de la expresion.
 evalM :: Expr -> EvalM Double Double
-evalM (Lit x) = pure x
+evalM (Lit x) = return x
 evalM (Var v)
-  | Just value <- constante v = pure value
+  | Just value <- constante v = return value
   | otherwise = lookupVar v
-evalM (Add e1 e2) = (+) <$> evalM e1 <*> evalM e2
-evalM (Sub e1 e2) = (-) <$> evalM e1 <*> evalM e2
-evalM (Mul e1 e2) = (*) <$> evalM e1 <*> evalM e2
+evalM (Add e1 e2) = evalBinaria (+) e1 e2
+evalM (Sub e1 e2) = evalBinaria (-) e1 e2
+evalM (Mul e1 e2) = evalBinaria (*) e1 e2
 evalM (Div e1 e2) = do
   v1 <- evalM e1
   v2 <- evalM e2
   if esCasiCero v2
     then throwEval DivideByZero
-    else pure (v1 / v2)
+    else return (v1 / v2)
 evalM (Pow e1 e2) = do
   base <- evalM e1
   expn <- evalM e2
+  -- La potencia real tiene casos parciales que Haskell podria devolver como NaN.
   if base == 0 then
     if expn <= 0
       then throwEval $ DomainError "0^0 o potencia negativa de cero no esta definida"
-      else pure 0
+      else return 0
   else if base == 1 then
-    pure 1
+    return 1
   else if expn == 0 then
-    pure 1
+    return 1
   else if base < 0 && not (esEntero expn)
     then throwEval $ DomainError "base negativa con exponente fraccionario"
     else
       let result = base ** expn
       in if isNaN result || isInfinite result
          then throwEval $ DomainError "resultado de potencia no finito"
-         else pure result
-evalM (Sin e) = sin <$> evalM e
-evalM (Cos e) = cos <$> evalM e
+         else return result
+evalM (Sin e) = evalUnaria sin e
+evalM (Cos e) = evalUnaria cos e
 evalM (Tan e) = do
   v <- evalM e
+  -- Cerca de pi/2 + k*pi la tangente no es estable para este DSL.
   if esCasiCero (cos v)
     then throwEval $ DomainError "tan no esta definida en este punto"
-    else pure (tan v)
+    else return (tan v)
 evalM (Log e) = do
   v <- evalM e
   if v <= 0
     then throwEval $ DomainError "log requiere argumento positivo"
-    else pure (log v)
-evalM (Exp e) = exp <$> evalM e
-evalM (Sinh e) = sinh <$> evalM e
-evalM (Cosh e) = cosh <$> evalM e
-evalM (Tanh e) = tanh <$> evalM e
+    else return (log v)
+evalM (Exp e) = evalUnaria exp e
+evalM (Sinh e) = evalUnaria sinh e
+evalM (Cosh e) = evalUnaria cosh e
+evalM (Tanh e) = evalUnaria tanh e
 evalM (Sqrt e) = do
   v <- evalM e
   if v < 0
     then throwEval $ DomainError "sqrt requiere argumento no negativo"
-    else pure (sqrt v)
-evalM (Arsinh e) = asinh <$> evalM e
+    else return (sqrt v)
+evalM (Arsinh e) = evalUnaria asinh e
 evalM (Arcosh e) = do
   value <- evalM e
   if value < 1
     then throwEval $ DomainError "arcosh requiere argumento >= 1"
-    else pure (acosh value)
+    else return (acosh value)
 evalM (Artanh e) = do
   value <- evalM e
   if abs value >= 1
     then throwEval $ DomainError "artanh requiere |x| < 1"
-    else pure (atanh value)
+    else return (atanh value)
+
+evalBinaria :: (Double -> Double -> Double) -> Expr -> Expr -> EvalM Double Double
+evalBinaria f e1 e2 =
+  evalM e1 >>= \v1 ->
+  evalM e2 >>= \v2 ->
+  return (f v1 v2)
+
+evalUnaria :: (Double -> Double) -> Expr -> EvalM Double Double
+evalUnaria f e =
+  evalM e >>= \v ->
+  return (f v)
 
 -- Numero dual: valor primal y derivada asociada.
 data Dual = Dual { primal :: Double, deriv :: Double }
@@ -133,6 +147,7 @@ instance Floating Dual where
   (**) (Dual p1 d1) (Dual p2 d2) =
     let result = p1 ** p2
         isInteger = esEntero p2
+    -- Esta instancia es parcial; el evaluador monadico valida antes de llamarla.
     in if isNaN result || isInfinite result
        then error "power: result is NaN or Infinite"
        else if p1 == 0
@@ -155,28 +170,29 @@ instance Floating Dual where
 safeLogDual :: Dual -> EvalM Dual Dual
 safeLogDual d
   | primal d <= 0 = throwEval $ DomainError "log requiere argumento positivo"
-  | otherwise = pure $ log d
+  | otherwise = return $ log d
 
 safeSqrtDual :: Dual -> EvalM Dual Dual
 safeSqrtDual d
   | primal d < 0 = throwEval $ DomainError "sqrt requiere argumento no negativo"
+  -- sqrt(0) existe, pero su derivada no es finita si la entrada varia.
   | esCasiCero (primal d) && not (esCasiCero (deriv d)) =
       throwEval $ DomainError "derivada de sqrt no definida en 0"
-  | esCasiCero (primal d) = pure $ Dual 0 0
-  | otherwise = pure $ sqrt d
+  | esCasiCero (primal d) = return $ Dual 0 0
+  | otherwise = return $ sqrt d
 
 safeAcoshDual :: Dual -> EvalM Dual Dual
 safeAcoshDual d
   | primal d < 1 = throwEval $ DomainError "arcosh requiere argumento >= 1"
   | esCasiCero (primal d - 1) && not (esCasiCero (deriv d)) =
       throwEval $ DomainError "derivada de arcosh no definida en 1"
-  | esCasiCero (primal d - 1) = pure $ Dual 0 0
-  | otherwise = pure $ acosh d
+  | esCasiCero (primal d - 1) = return $ Dual 0 0
+  | otherwise = return $ acosh d
 
 safeAtanhDual :: Dual -> EvalM Dual Dual
 safeAtanhDual d
   | abs (primal d) >= 1 = throwEval $ DomainError "artanh requiere |x| < 1"
-  | otherwise = pure $ atanh d
+  | otherwise = return $ atanh d
 
 safePowDual :: Dual -> Dual -> EvalM Dual Dual
 safePowDual d1 d2
@@ -188,7 +204,7 @@ safePowDual d1 d2
       throwEval $ DomainError "base negativa con exponente variable no es real"
   | isNaN result || isInfinite result =
       throwEval $ DomainError "resultado de potencia no finito"
-  | otherwise = pure $ d1 ** d2
+  | otherwise = return $ d1 ** d2
   where
     p1 = primal d1
     p2 = primal d2
@@ -202,45 +218,46 @@ evalDual expr x = evalDualWithEnv [("x", Dual x 1)] expr
 evalDualWithEnv :: EvalEnv Dual -> Expr -> Either ErrorType Dual
 evalDualWithEnv env expr = runEvalM env (evalDualM expr)
 
+-- Interpretacion dual: el primal da f(x) y deriv acumula f'(x).
 evalDualM :: Expr -> EvalM Dual Dual
-evalDualM (Lit n) = pure $ Dual n 0
+evalDualM (Lit n) = return $ Dual n 0
 evalDualM (Var v)
-  | Just value <- constante v = pure value
+  | Just value <- constante v = return value
   | otherwise = lookupVar v
-evalDualM (Add e1 e2) = (+) <$> evalDualM e1 <*> evalDualM e2
-evalDualM (Sub e1 e2) = (-) <$> evalDualM e1 <*> evalDualM e2
-evalDualM (Mul e1 e2) = (*) <$> evalDualM e1 <*> evalDualM e2
+evalDualM (Add e1 e2) = evalDualBinaria (+) e1 e2
+evalDualM (Sub e1 e2) = evalDualBinaria (-) e1 e2
+evalDualM (Mul e1 e2) = evalDualBinaria (*) e1 e2
 evalDualM (Div e1 e2) = do
   d1 <- evalDualM e1
   d2 <- evalDualM e2
   if esCasiCero (primal d2)
     then throwEval DivideByZero
-    else pure $ d1 / d2
+    else return $ d1 / d2
 evalDualM (Pow e1 e2) = do
   d1 <- evalDualM e1
   d2 <- evalDualM e2
   safePowDual d1 d2
-evalDualM (Sin e) = sin <$> evalDualM e
-evalDualM (Cos e) = cos <$> evalDualM e
+evalDualM (Sin e) = evalDualUnaria sin e
+evalDualM (Cos e) = evalDualUnaria cos e
 evalDualM (Tan e) = do
   d <- evalDualM e
   let p = primal d
   if esCasiCero (cos p)
     then throwEval $ DomainError "tan no esta definida en este punto"
     else let sec2 = 1 / (cos p ** 2)
-         in pure $ Dual (tan p) (deriv d * sec2)
-evalDualM (Exp e) = exp <$> evalDualM e
+         in return $ Dual (tan p) (deriv d * sec2)
+evalDualM (Exp e) = evalDualUnaria exp e
 evalDualM (Log e) = do
   d <- evalDualM e
   safeLogDual d
-evalDualM (Sinh e) = sinh <$> evalDualM e
-evalDualM (Cosh e) = cosh <$> evalDualM e
+evalDualM (Sinh e) = evalDualUnaria sinh e
+evalDualM (Cosh e) = evalDualUnaria cosh e
 evalDualM (Tanh e) = do
   d <- evalDualM e
   let p = primal d
       sech2 = 1 / (cosh p ** 2)
-  pure $ Dual (tanh p) (deriv d * sech2)
-evalDualM (Arsinh e) = asinh <$> evalDualM e
+  return $ Dual (tanh p) (deriv d * sech2)
+evalDualM (Arsinh e) = evalDualUnaria asinh e
 evalDualM (Sqrt e) = do
   d <- evalDualM e
   safeSqrtDual d
@@ -250,6 +267,17 @@ evalDualM (Arcosh e) = do
 evalDualM (Artanh e) = do
   d <- evalDualM e
   safeAtanhDual d
+
+evalDualBinaria :: (Dual -> Dual -> Dual) -> Expr -> Expr -> EvalM Dual Dual
+evalDualBinaria f e1 e2 =
+  evalDualM e1 >>= \v1 ->
+  evalDualM e2 >>= \v2 ->
+  return (f v1 v2)
+
+evalDualUnaria :: (Dual -> Dual) -> Expr -> EvalM Dual Dual
+evalDualUnaria f e =
+  evalDualM e >>= \v ->
+  return (f v)
 
 constante :: Floating a => String -> Maybe a
 constante "pi" = Just pi

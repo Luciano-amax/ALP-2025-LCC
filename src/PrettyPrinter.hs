@@ -6,15 +6,15 @@ module PrettyPrinter (
 
 import Expr
 
--- Tipo para representar precedencia de operadores
+-- Orden usado para decidir parentesis sin cambiar la expresion al reparsear.
 data Precedence = PrecAtom | PrecPow | PrecMul | PrecAdd | PrecTop
     deriving (Eq, Ord)
 
--- Convierte una expresion a String legible minimizando parentesis
+-- Imprime una expresion legible, con los parentesis justos.
 prettyPrint :: Expr -> String
 prettyPrint = prettyPrintPrec PrecTop
 
--- Convierte una expresion a String con todos los parentesis explicitos
+-- Version verbosa, util para depurar el arbol sin depender de precedencias.
 prettyPrintWithParens :: Expr -> String
 prettyPrintWithParens expr = case expr of
     Lit n -> showNumber n
@@ -37,7 +37,7 @@ prettyPrintWithParens expr = case expr of
     Exp e -> "exp(" ++ prettyPrintWithParens e ++ ")"
     Sqrt e -> "sqrt(" ++ prettyPrintWithParens e ++ ")"
 
--- Imprime mostrando el antes y despues de optimizar
+-- Muestra el antes y despues cuando la optimizacion realmente cambia algo.
 prettyPrintOptimized :: Expr -> String
 prettyPrintOptimized expr =
     let original = prettyPrint expr
@@ -46,7 +46,7 @@ prettyPrintOptimized expr =
        then "  " ++ original
        else "  Original:   " ++ original ++ "\n  Optimizada: " ++ optimized
 
--- Pretty print con contexto de precedencia
+-- El contexto de precedencia indica si la subexpresion necesita parentesis.
 prettyPrintPrec :: Precedence -> Expr -> String
 prettyPrintPrec _ (Lit n) = showNumber n
 prettyPrintPrec _ (Var v) = v
@@ -84,17 +84,17 @@ prettyPrintPrec _ (Log e) = "log(" ++ prettyPrintPrec PrecTop e ++ ")"
 prettyPrintPrec _ (Exp e) = "exp(" ++ prettyPrintPrec PrecTop e ++ ")"
 prettyPrintPrec _ (Sqrt e) = "sqrt(" ++ prettyPrintPrec PrecTop e ++ ")"
 
--- Helper: muestra un numero de forma legible
+-- Los enteros se imprimen sin ".0" para que la salida sea mas limpia.
 showNumber :: Double -> String
 showNumber n
     | n == fromInteger (round n) = show (round n :: Integer)
     | otherwise = show n
 
--- Helper: agrega parentesis si es necesario
 parenthesize :: Bool -> String -> String
 parenthesize True s = "(" ++ s ++ ")"
 parenthesize False s = s
 
+-- En potencias, las bases negativas o ya exponenciadas necesitan parentesis.
 prettyPrintPowBase :: Expr -> String
 prettyPrintPowBase expr@(Lit n)
     | n < 0 = "(" ++ showNumber n ++ ")"

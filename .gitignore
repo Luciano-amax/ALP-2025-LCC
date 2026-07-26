@@ -3,3 +3,5 @@ dist-newstyle/
 *.o
 *.exe
 *.log
+*.aux
+*.out

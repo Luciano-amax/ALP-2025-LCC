@@ -1,3 +1,4 @@
+-- Fachada publica del lenguaje: evita que la consola dependa de modulos internos.
 module DSL
   ( Expr(..)
   , Dual(..)

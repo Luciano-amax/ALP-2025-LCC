@@ -116,6 +116,8 @@ examples/
   monada_eval.hs       Ejemplo de uso directo de EvalM.
 
 docs/
+  guia-uso.tex        Guia de uso actualizada en LaTeX.
+  guia-uso.pdf        Guia de uso compilada.
   informe-final.tex    Informe final en LaTeX.
   monadas-y-evaluacion.md
   informe-base.md
@@ -239,6 +241,8 @@ Puntos importantes:
 ## Documentacion
 
 - `docs/informe-final.tex`: informe final en LaTeX.
+- `docs/guia-uso.tex`: guia de uso actualizada en LaTeX.
+- `docs/guia-uso.pdf`: guia de uso compilada.
 - `docs/monadas-y-evaluacion.md`: explicacion especifica de `EvalM`.
 - `docs/informe-base.md`: version base en Markdown.
 - `docs/Dual Numbers - Guide.pdf`: guia previa.

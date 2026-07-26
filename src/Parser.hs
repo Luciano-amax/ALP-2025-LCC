@@ -26,6 +26,7 @@ algebraDef = emptyDef
   , Token.caseSensitive = True
   }
 
+-- El lexer concentra espacios, comentarios y palabras reservadas del DSL.
 lexer :: Token.TokenParser st
 lexer = Token.makeTokenParser algebraDef
 
@@ -109,6 +110,7 @@ parsePow = do
     expnt <- parsePrefix
     pure $ Pow base expnt
 
+-- La multiplicacion y division asocian a izquierda, como en la notacion usual.
 parseMulDiv :: Parser Expr
 parseMulDiv = chainl1 parsePrefix (mulOp <|> divOp)
   where

@@ -17,6 +17,7 @@ data ErrorType
   | DomainError String
   deriving (Show, Eq)
 
+-- Mensaje para usuario final; el Show queda reservado para debugging.
 mostrarError :: ErrorType -> String
 mostrarError DivideByZero =
   "Division por cero"
@@ -52,12 +53,14 @@ instance Applicative (EvalM env) where
     runEvalM env f <*> runEvalM env value
 
 instance Monad (EvalM env) where
+  return = pure
   action >>= next = EvalM $ \env -> do
     value <- runEvalM env action
     runEvalM env (next value)
 
 instance Alternative (EvalM env) where
   empty = throwEval $ DomainError "evaluacion vacia"
+  -- Si falla la primera alternativa, se prueba la segunda con el mismo entorno.
   left <|> right = EvalM $ \env ->
     case runEvalM env left of
       Left _ -> runEvalM env right

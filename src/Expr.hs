@@ -2,6 +2,7 @@ module Expr where
 
 import NumericPolicy
 
+-- AST del DSL: mantiene separada la sintaxis de sus interpretaciones.
 data Expr
   = Lit Double
   | Var String
@@ -77,7 +78,7 @@ optimize expr = case expr of
       (Lit a, Lit b) | powPlegable a b -> Lit (a ** b)
       _ -> Pow e1' e2'
   
-  -- Funciones unarias (aridad 1)
+  -- Las funciones unarias solo optimizan su argumento.
   Sin e -> Sin (optimize e)
   Cos e -> Cos (optimize e)
   Tan e -> Tan (optimize e)
@@ -91,9 +92,10 @@ optimize expr = case expr of
   Exp e -> Exp (optimize e)
   Sqrt e -> Sqrt (optimize e)
   
-  -- Literales y variables no se optimizan
+  -- Literales y variables ya estan en forma normal.
   _ -> expr
 
+-- Decide si una potencia literal puede calcularse sin salir del dominio real.
 powDefinida :: Double -> Double -> Bool
 powDefinida base exponente
   | base == 0 && exponente <= 0 = False

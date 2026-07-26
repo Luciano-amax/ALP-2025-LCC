@@ -25,6 +25,7 @@ data LineaEvaluacion = LineaEvaluacion
   , valorX :: Double
   } deriving (Show)
 
+-- Parsea una linea del formato "expresion @ valor", limpiando comentarios inline.
 parsearLinea :: String -> Either String LineaEvaluacion
 parsearLinea linea =
   let (sinBloques, _) = quitarBloques False linea
@@ -33,7 +34,7 @@ parsearLinea linea =
     (exprStr, '@':xStr) -> do
       expr <- parseExprArchivo (strip exprStr)
       x <- parseValor (strip xStr)
-      pure $ LineaEvaluacion expr x
+      return $ LineaEvaluacion expr x
     _ -> Left "Formato invalido. Use: expresion @ valor"
   where
     strip = dropWhile isSpace . dropWhileEnd isSpace
@@ -43,6 +44,7 @@ parsearLinea linea =
       Left err -> Left $ "Error de parsing: " ++ show err
       Right expr -> Right expr
 
+    -- El valor de x puede ser un numero o una expresion constante como pi/2.
     parseValor s = case reads s of
       [(val, "")] -> Right val
       _ -> case parse parseExpr "" s of
@@ -58,6 +60,7 @@ parsearLinea linea =
 parsearContenido :: String -> [Either String LineaEvaluacion]
 parsearContenido contenido = map parsearLinea (lineasEvaluables contenido)
 
+-- Evita mostrar -0.0, que confunde aunque sea el mismo valor numerico.
 normalizarCero :: Double -> Double
 normalizarCero x = if x == 0 then 0 else x
 
@@ -87,6 +90,7 @@ filtrarComentariosMultilinea =
       let (lineaLimpia, enBloque') = quitarBloques enBloque linea
       in (enBloque', lineaLimpia)
 
+-- Devuelve la linea sin bloques y si quedo abierto un comentario multilinea.
 quitarBloques :: Bool -> String -> (String, Bool)
 quitarBloques enBloque [] = ([], enBloque)
 quitarBloques True ('-':'}':resto) = quitarBloques False resto

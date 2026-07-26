@@ -54,6 +54,8 @@ extra-doc-files:    CHANGELOG.md
                     README.md
                     "docs/Dual Numbers - Guide.pdf"
                     "docs/Dual Numbers - Informe.pdf"
+                    docs/guia-uso.pdf
+                    docs/guia-uso.tex
                     docs/informe-final.tex
                     docs/monadas-y-evaluacion.md
                     docs/informe-base.md

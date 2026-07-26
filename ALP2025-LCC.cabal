@@ -56,6 +56,7 @@ extra-doc-files:    CHANGELOG.md
                     "docs/Dual Numbers - Informe.pdf"
                     docs/guia-uso.pdf
                     docs/guia-uso.tex
+                    docs/informe-final.pdf
                     docs/informe-final.tex
                     docs/monadas-y-evaluacion.md
                     docs/informe-base.md

@@ -21,53 +21,39 @@
 
 \section{Objetivo de la guía}
 
-Esta guía explica cómo compilar, ejecutar y probar el evaluador de expresiones
-matemáticas desarrollado para el trabajo final. El programa permite escribir
-expresiones en una variable principal \texttt{x}, evaluarlas en un punto y
-calcular su derivada usando números duales.
+Esta guía explica cómo compilar, ejecutar y probar el evaluador de expresiones desarrollado para el trabajo final. El programa permite escribir expresiones matemáticas en una variable principal \texttt{x}, evaluarlas en un punto y calcular su derivada mediante números duales.
 
-El proyecto también incluye procesamiento de archivos, manejo explícito de
-errores, optimizaciones conservadoras y una API interna que permite evaluar con
-entornos de variables.
+Aunque el uso más directo es como calculadora, internamente el proyecto está organizado como un DSL/EDSL. La entrada textual se parsea a un árbol de expresiones, ese árbol puede optimizarse, evaluarse, imprimirse y derivarse automáticamente. Por eso la guía no sólo muestra comandos, sino también qué espera el programa en cada modo de uso.
 
-\section{Requisitos}
+\section{Requisitos y ubicación}
 
-Para usar el proyecto se necesita tener instalado:
-
-\begin{itemize}
-  \item GHC compatible con el proyecto;
-  \item Cabal;
-  \item una terminal de Windows, PowerShell o WSL.
-\end{itemize}
-
-Los comandos principales de esta guía están escritos para PowerShell desde la
-raíz del repositorio:
+Para usar el proyecto hace falta tener GHC y Cabal instalados. Los comandos están pensados para ejecutarse desde la raíz del repositorio. En PowerShell, por ejemplo:
 
 \begin{codeblock}
 cd C:\Users\lucho\ALP-2025-LCC
 \end{codeblock}
 
+El proyecto también puede compilarse desde WSL. Esto es útil especialmente para compilar los documentos LaTeX, aunque los comandos de Cabal funcionan normalmente desde PowerShell.
+
 \section{Compilación}
 
-Para compilar biblioteca, ejecutable y tests:
+El primer paso recomendado es compilar todo el proyecto:
 
 \begin{codeblock}
 cabal build all
 \end{codeblock}
 
-Si Cabal responde \texttt{Up to date}, significa que el proyecto ya está
-compilado con los cambios actuales.
+Este comando compila la biblioteca, el ejecutable y lo necesario para los tests. Si Cabal responde \texttt{Up to date}, significa que no detectó cambios pendientes de compilación. Si hubo modificaciones en algún módulo, Cabal recompila sólo lo necesario.
 
 \section{Modo interactivo}
 
-El modo interactivo permite ingresar una expresión, pedir un valor para
-\texttt{x} y obtener el valor de la función junto con su derivada.
+El modo interactivo está pensado para probar una expresión por vez. Se inicia con:
 
 \begin{codeblock}
 cabal run ALP2025-LCC
 \end{codeblock}
 
-Ejemplo de uso:
+El programa primero pide una expresión. Si el parser la acepta, muestra la expresión normalizada por el pretty printer y, cuando corresponde, también su versión optimizada. Después pide el valor de \texttt{x} y calcula dos resultados: el valor de la función y la derivada en ese punto.
 
 \begin{codeblock}
 >>> sin(x) + x^2
@@ -76,24 +62,17 @@ f(1) = 1.8414709848078965
 f'(1) = 2.5403023058681398
 \end{codeblock}
 
-Para salir del modo interactivo se puede escribir:
-
-\begin{codeblock}
-salir
-quit
-exit
-\end{codeblock}
+El valor ingresado para \texttt{x} puede ser un número o una expresión constante como \texttt{pi/2}. Para salir del modo interactivo se puede escribir \texttt{salir}, \texttt{quit} o \texttt{exit}.
 
 \section{Procesamiento de archivos}
 
-El programa puede leer varias expresiones desde un archivo. Cada línea útil debe
-tener este formato:
+El modo archivo permite ejecutar varios casos en una sola corrida. Cada línea útil tiene el formato:
 
 \begin{codeblock}
 expresion @ valor_de_x
 \end{codeblock}
 
-Ejemplo:
+La parte izquierda se interpreta como expresión del DSL. La parte derecha se usa como valor de \texttt{x}. Por ejemplo:
 
 \begin{codeblock}
 x^2 + 2*x + 1 @ 3
@@ -101,20 +80,19 @@ sin(x) @ pi/2
 log(x) + pi @ e
 \end{codeblock}
 
-Para procesar un archivo:
+Para procesar un archivo se usa:
 
 \begin{codeblock}
 cabal run ALP2025-LCC -- -f examples\basico.txt
 \end{codeblock}
 
-También se puede usar la opción larga:
+También existe la opción larga:
 
 \begin{codeblock}
 cabal run ALP2025-LCC -- --file examples\basico.txt
 \end{codeblock}
 
-En algunas instalaciones de Windows puede bloquearse el ejecutable generado por
-Cabal. En ese caso se puede correr el mismo flujo con \texttt{runghc}:
+En algunas instalaciones de Windows puede fallar la ejecución directa del binario generado por Cabal por políticas del sistema. En ese caso se puede correr el mismo flujo con \texttt{runghc}:
 
 \begin{codeblock}
 cabal exec -- runghc -isrc -iapp app\Main.hs -f examples\defensa.txt
@@ -122,227 +100,133 @@ cabal exec -- runghc -isrc -iapp app\Main.hs -f examples\defensa.txt
 
 \section{Comentarios en archivos}
 
-Los archivos aceptan comentarios de línea:
+Los archivos aceptan comentarios de línea y comentarios de bloque. Esto permite armar ejemplos explicativos sin que esas aclaraciones formen parte de la expresión.
 
 \begin{codeblock}
 -- Esto es un comentario
-x^2 @ 3 -- comentario al final de la línea
+x^2 @ 3 -- comentario al final de la linea
 \end{codeblock}
-
-También aceptan comentarios de bloque:
 
 \begin{codeblock}
 {- Comentario
-   de varias líneas -}
+   de varias lineas -}
 
 (x + {- comentario interno -} 1) * 2 @ 3
 \end{codeblock}
 
-\section{Sintaxis soportada}
+Los comentarios se limpian antes de parsear cada línea. Si una línea queda vacía después de quitar comentarios y espacios, se ignora.
 
-\subsection{Operadores}
+\section{Sintaxis del lenguaje}
 
-\begin{center}
-\begin{tabular}{ll}
-\textbf{Operador} & \textbf{Significado} \\
-\hline
-\texttt{+} & suma \\
-\texttt{-} & resta y menos unario \\
-\texttt{*} & multiplicación \\
-\texttt{/} & división \\
-\texttt{\^{}} & potencia \\
-\end{tabular}
-\end{center}
-
-La precedencia usada por el parser es:
+El lenguaje soporta los operadores aritméticos \texttt{+}, \texttt{-}, \texttt{*}, \texttt{/} y \texttt{\^{}}. El signo menos puede usarse como resta binaria o como menos unario. La precedencia que usa el parser es:
 
 \begin{codeblock}
-potencia > menos unario > multiplicación/división > suma/resta
+potencia > menos unario > multiplicacion/division > suma/resta
 \end{codeblock}
 
-Por ejemplo, \texttt{-x\^{}2} se interpreta como \texttt{-(x\^{}2)}.
+Esto significa que \texttt{-x\^{}2} se interpreta como \texttt{-(x\^{}2)}. Si se quiere elevar el negativo completo, hay que escribir \texttt{(-x)\^{}2}.
 
-\subsection{Funciones}
-
-\begin{center}
-\begin{tabular}{ll}
-\textbf{Función} & \textbf{Dominio principal} \\
-\hline
-\texttt{sin(x)}, \texttt{cos(x)} & todo número real \\
-\texttt{tan(x)} & donde \texttt{cos(x)} no sea cero \\
-\texttt{sinh(x)}, \texttt{cosh(x)}, \texttt{tanh(x)} & todo número real \\
-\texttt{arsinh(x)} & todo número real \\
-\texttt{arcosh(x)} & \texttt{x >= 1} \\
-\texttt{artanh(x)} & \texttt{|x| < 1} \\
-\texttt{sqrt(x)} & \texttt{x >= 0} \\
-\texttt{log(x)} & \texttt{x > 0} \\
-\texttt{exp(x)} & todo número real \\
-\end{tabular}
-\end{center}
-
-\subsection{Constantes}
-
-Se soportan las constantes:
+Las funciones soportadas son:
 
 \begin{codeblock}
-pi
-e
+sin, cos, tan
+sinh, cosh, tanh
+arsinh, arcosh, artanh
+sqrt, exp, log
 \end{codeblock}
 
-El valor ubicado a la derecha de \texttt{@} puede ser un número o una expresión
-constante, por ejemplo:
+También se reconocen las constantes \texttt{pi} y \texttt{e}. Estas constantes pueden aparecer tanto en la expresión como en el valor ubicado a la derecha de \texttt{@}.
 
-\begin{codeblock}
-sin(x) @ pi/2
-log(x) @ e
-\end{codeblock}
+\section{Dominios y errores}
 
-\section{Optimización}
+El evaluador trabaja sobre números reales. Por eso algunas funciones tienen restricciones de dominio. \texttt{log(x)} requiere argumentos positivos y \texttt{sqrt(x)} no acepta valores negativos. Para las funciones inversas hiperbólicas, \texttt{arcosh(x)} requiere \texttt{x >= 1} y \texttt{artanh(x)} requiere \texttt{|x| < 1}. La tangente se rechaza en puntos donde el coseno es cercano a cero.
 
-Antes de evaluar, el programa aplica optimizaciones simples. Algunos ejemplos:
-
-\begin{codeblock}
-x + 0  -> x
-x * 1  -> x
-x / 1  -> x
-x^1    -> x
-2 + 3  -> 5
-\end{codeblock}
-
-Las optimizaciones son conservadoras. Esto significa que no deben ocultar errores
-que el evaluador debería detectar. Por eso no se simplifican automáticamente casos
-como:
-
-\begin{codeblock}
-x / x  -> 1
-x * 0  -> 0
-x^0    -> 1
-1^x    -> 1
-\end{codeblock}
-
-Por ejemplo, si \texttt{x = 0}, entonces \texttt{x/x} debe seguir dando división
-por cero y \texttt{x\^{}0} debe respetar el caso especial \texttt{0\^{}0}.
-
-\section{Manejo de errores}
-
-Los errores principales se representan de forma tipada y luego se muestran al
-usuario con mensajes legibles.
-
-\subsection{División por cero}
-
-\begin{codeblock}
-1/0 @ 0
-\end{codeblock}
-
-Salida esperada:
-
-\begin{codeblock}
-[X] Error al evaluar: Division por cero
-\end{codeblock}
-
-\subsection{Error de dominio}
+Cuando ocurre un problema, el programa devuelve un error controlado. Por ejemplo:
 
 \begin{codeblock}
 sqrt(-1) @ 0
 \end{codeblock}
 
-Salida esperada:
+produce:
 
 \begin{codeblock}
 [X] Error al evaluar: Error de dominio: sqrt requiere argumento no negativo
 \end{codeblock}
 
-\subsection{Variable no definida}
+También se detecta división por cero:
 
-El modo de usuario trabaja con la variable \texttt{x}. Si se usa una variable sin
-valor en el entorno, se reporta como error:
+\begin{codeblock}
+1/0 @ 0
+\end{codeblock}
+
+y variables no definidas:
 
 \begin{codeblock}
 y + 2 @ 1
 \end{codeblock}
 
-Salida esperada:
+El modo de usuario está centrado en \texttt{x}. Si aparece otra variable sin valor asociado en el entorno, se informa como variable no definida.
 
-\begin{codeblock}
-[X] Error al evaluar: Variable no definida: y
-\end{codeblock}
+\section{Optimización}
+
+Antes de evaluar, el programa aplica optimizaciones simples sobre el AST. Por ejemplo, puede transformar \texttt{x + 0} en \texttt{x}, \texttt{x * 1} en \texttt{x}, o calcular \texttt{2 + 3} como \texttt{5}. Estas reglas hacen que algunas expresiones se muestren de forma más limpia y prueban que el árbol puede transformarse antes de interpretarse.
+
+La optimización es conservadora. No se aplican reglas como \texttt{x/x = 1}, \texttt{x*0 = 0} o \texttt{x\^{}0 = 1} en todos los casos, porque podrían ocultar errores. Por ejemplo, si \texttt{x = 0}, la expresión \texttt{x/x} debe seguir dando división por cero. Esta decisión es importante: el optimizador no debe cambiar una expresión que falla por otra que parece válida.
 
 \section{Archivos de ejemplo}
 
-La carpeta \texttt{examples/} incluye casos para probar distintas partes del
-lenguaje:
+La carpeta \texttt{examples/} contiene archivos preparados para probar partes distintas del lenguaje. \texttt{basico.txt} muestra expresiones iniciales, \texttt{compuestas.txt} combina funciones, \texttt{constantes.txt} usa \texttt{pi} y \texttt{e}, \texttt{optimizaciones.txt} muestra reglas conservadoras, \texttt{casos\_error.txt} fuerza errores controlados y \texttt{defensa.txt} reúne casos útiles para explicar el trabajo.
 
-\begin{center}
-\begin{tabular}{ll}
-\textbf{Archivo} & \textbf{Contenido principal} \\
-\hline
-\texttt{basico.txt} & expresiones iniciales \\
-\texttt{compuestas.txt} & composición de funciones \\
-\texttt{constantes.txt} & uso de \texttt{pi} y \texttt{e} \\
-\texttt{constantes\_extendido.txt} & constantes en casos más variados \\
-\texttt{trigonometricas.txt} & funciones trigonométricas \\
-\texttt{hiperbolicas.txt} & funciones hiperbólicas \\
-\texttt{todas\_funciones.txt} & combinación de funciones soportadas \\
-\texttt{numeros\_negativos.txt} & menos unario y negativos \\
-\texttt{precedencia\_operadores.txt} & precedencia y asociatividad \\
-\texttt{optimizaciones.txt} & reglas de optimización \\
-\texttt{casos\_error.txt} & errores controlados \\
-\texttt{test\_comentarios.txt} & comentarios de línea y de bloque \\
-\texttt{valores\_especiales.txt} & valores borde simples \\
-\texttt{anidamiento\_profundo.txt} & expresiones anidadas \\
-\texttt{identidades\_matematicas.txt} & identidades conocidas \\
-\texttt{nuevas\_caracteristicas.txt} & funcionalidades agregadas \\
-\texttt{defensa.txt} & casos pensados para explicar el trabajo \\
-\end{tabular}
-\end{center}
-
-\section{Pruebas}
-
-Para correr la suite completa:
-
-\begin{codeblock}
-cabal test
-\end{codeblock}
-
-La suite actual contiene 125 casos. Incluye una verificación llamada:
-
-\begin{codeblock}
-Verificacion de Casos de ejemplo
-\end{codeblock}
-
-Esa prueba lee todos los archivos \texttt{.txt} de \texttt{examples/}, verifica
-que parseen correctamente y comprueba que la evaluación termine de forma
-controlada, ya sea con resultado correcto o con un error esperado.
-
-También se puede correr la suite directamente:
-
-\begin{codeblock}
-cabal exec -- runghc -isrc test\TestSuite.hs
-\end{codeblock}
-
-\section{Ejemplo recomendado para defensa}
-
-Para mostrar varias decisiones del proyecto en una sola ejecución:
+Una corrida recomendada para revisar varias decisiones juntas es:
 
 \begin{codeblock}
 cabal exec -- runghc -isrc -iapp app\Main.hs -f examples\defensa.txt
 \end{codeblock}
 
-Ese archivo muestra:
+Ese archivo muestra precedencia, derivación automática, optimización, errores de dominio, constantes y comentarios dentro de expresiones.
 
-\begin{itemize}
-  \item parsing y precedencia;
-  \item derivación automática con números duales;
-  \item optimización conservadora;
-  \item errores de dominio controlados;
-  \item constantes como \texttt{pi} y \texttt{e};
-  \item comentarios de bloque dentro de una expresión.
-\end{itemize}
+\section{Pruebas}
+
+La suite completa se corre con:
+
+\begin{codeblock}
+cabal test
+\end{codeblock}
+
+En Windows, si la ejecución del binario de test queda bloqueada, se puede usar:
+
+\begin{codeblock}
+cabal exec -- runghc -isrc test\TestSuite.hs
+\end{codeblock}
+
+La suite actual contiene 138 casos. Además de probar evaluación básica, derivadas, parser y errores, incluye una verificación llamada:
+
+\begin{codeblock}
+Verificacion de Casos de ejemplo
+\end{codeblock}
+
+Esa prueba lee todos los archivos \texttt{.txt} de \texttt{examples/}. La intención es que los ejemplos usados para mostrar el trabajo también estén cubiertos por la validación automática.
+
+\section{Documentación}
+
+La documentación principal está en LaTeX. Los archivos fuente son:
+
+\begin{codeblock}
+docs/informe-final.tex
+docs/guia-uso.tex
+\end{codeblock}
+
+Ambos pueden compilarse con \texttt{pdflatex} desde la carpeta \texttt{docs/}.
+
+\begin{codeblock}
+pdflatex informe-final.tex
+pdflatex guia-uso.tex
+\end{codeblock}
+
+Los PDF generados también están incluidos como parte de la entrega.
 
 \section{Notas finales}
 
-El programa no busca ser un sistema de álgebra computacional completo. Su foco es
-representar un lenguaje pequeño de expresiones, interpretarlo de forma segura y
-usar números duales para obtener derivadas automáticamente.
+El proyecto no busca ser un sistema de álgebra computacional completo. Su foco es representar un lenguaje pequeño, interpretarlo de forma segura y usar números duales para obtener derivadas automáticamente. Las decisiones de diseño priorizan robustez y claridad por encima de agregar funcionalidades sin conexión con el objetivo del trabajo.
 
 \end{document}

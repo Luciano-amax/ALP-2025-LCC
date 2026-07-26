@@ -39,5 +39,5 @@ mostrarAyuda = do
   putStrLn "Funciones soportadas:"
   putStrLn "  Trigonometricas: sin, cos, tan"
   putStrLn "  Hiperbolicas: sinh, cosh, tanh, arsinh, arcosh, artanh"
-  putStrLn "  Otras: exp, log"
+  putStrLn "  Otras: exp, log, sqrt"
   putStrLn "  Constantes: pi, e"

@@ -206,6 +206,17 @@ testValidacionDominios = TestList
       case result of
         Left (DomainError _) -> return ()
         _ -> assertFailure "0^0 deberia dar error de dominio"
+  , TestCase $ do
+      let result = eval (Tan (Lit (pi / 2))) 0
+      case result of
+        Left (DomainError _) -> return ()
+        _ -> assertFailure "tan(pi/2) deberia dar error de dominio"
+  , TestCase $ do
+      let result = eval (Artanh (Lit 1)) 0
+      case result of
+        Left (DomainError _) -> return ()
+        _ -> assertFailure "artanh(1) deberia dar error de dominio"
+  , TestCase $ assertEqual "arcosh(1) existe y vale 0" (Right 0.0) (eval (Arcosh (Lit 1)) 0)
   ]
 
 -- Validaciones de dominio en el evaluador con numeros duales.
@@ -219,6 +230,9 @@ testDominiosDual = TestList
   , TestCase $ expectDomainError "base negativa con exponente fraccionario dual" (evalDual (Pow (Lit (-1)) (Lit 0.5)) 0)
   , TestCase $ expectDomainError "base negativa con exponente casi cero dual" (evalDual (Pow (Lit (-2)) (Lit 1e-20)) 0)
   , TestCase $ expectDomainError "potencia dual no finita" (evalDual (Pow (Lit 10) (Lit 400)) 0)
+  , TestCase $ expectDomainError "tan(pi/2) dual" (evalDual (Tan (Lit (pi / 2))) 0)
+  , TestCase $ expectDomainError "log(x) dual en cero" (evalDual (Log (Var "x")) 0)
+  , TestCase $ assertEqual "division dual por cero" (Left DivideByZero) (evalDual (Div (Lit 1) (Sub (Var "x") (Var "x"))) 2)
   ]
   where
     expectDomainError testName result = case result of
@@ -306,6 +320,12 @@ testParsingComplejo = TestList
       let result = parse parseExpr "" "x + 1 basura"
       assertBool "rechaza texto sobrante al final" (case result of Left _ -> True; _ -> False)
   , TestCase $ do
+      let result = parse parseExpr "" "sin + 1"
+      assertBool "rechaza palabra reservada usada como variable" (case result of Left _ -> True; _ -> False)
+  , TestCase $ do
+      let result = parse parseExpr "" "sin(x"
+      assertBool "rechaza parentesis sin cerrar" (case result of Left _ -> True; _ -> False)
+  , TestCase $ do
       let result = parsearLinea "sin(x) @ pi/2"
       case result of
         Right (LineaEvaluacion _ x) -> assertBool "parsea pi/2 como valor de archivo" (abs (x - pi / 2) < epsilonEntero)
@@ -355,6 +375,15 @@ testArchivoBordes = TestList
       case resultados of
         [Right (LineaEvaluacion expr x)] -> expectDomainError "sqrt(-1) desde archivo" (eval expr x)
         other -> assertFailure $ "sqrt(-1) debia parsear y luego fallar por dominio: " ++ show other
+  , TestCase $ do
+      let resultados = parsearContenido "x @ 1 @ 2"
+      case resultados of
+        [Left _] -> return ()
+        other -> assertFailure $ "valor con dos @ debia fallar y dio " ++ show other
+  , TestCase $
+      assertEqual "archivo solo con comentarios no tiene expresiones" 0 (length (parsearContenido "-- comentario"))
+  , TestCase $
+      assertEqual "comentario de bloque sin cerrar descarta el resto" 0 (length (parsearContenido "{- bloque abierto\nx @ 1"))
   ]
   where
     expectDomainError testName result = case result of
@@ -394,6 +423,8 @@ testRoundTripPrettyParser = TestList $
     , ("sqrt con parentesis internos", Sqrt (Add (Pow (Var "x") (Lit 2)) (Lit 1)))
     , ("hiperbolicas", Tanh (Sub (Sinh (Var "x")) (Cosh (Var "y"))))
     , ("funciones inversas hiperbolicas", Add (Arsinh (Var "x")) (Artanh (Div (Var "y") (Lit 2))))
+    , ("division con resta en denominador", Div (Lit 1) (Sub (Var "y") (Var "z")))
+    , ("funcion con argumento negativo", Exp (Sub (Lit 0) (Add (Var "x") (Lit 1))))
     ]
   where
     crearCaso (testName, expr) = TestCase $

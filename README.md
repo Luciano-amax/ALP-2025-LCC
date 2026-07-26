@@ -6,13 +6,9 @@ Este proyecto fue desarrollado como trabajo final para Analisis de Lenguajes de 
 
 ## Que hace
 
-- Parsea expresiones matematicas desde texto.
-- Evalua expresiones en un valor de `x`.
-- Calcula derivadas automaticamente usando numeros duales.
-- Procesa archivos con varias expresiones.
-- Maneja errores de dominio, division por cero y variables no definidas.
-- Aplica optimizaciones algebraicas conservadoras.
-- Expone una API con entorno de variables mediante `EvalM`.
+El programa toma expresiones escritas como texto, las transforma a un AST propio y luego las interpreta de varias formas: evaluacion escalar, evaluacion dual, pretty printing y optimizacion conservadora. El modo de usuario trabaja principalmente con la variable `x`, pero el nucleo expone funciones con entorno para dejar una base de multiples variables desde la API.
+
+Ademas de calcular resultados, el proyecto cuida casos de dominio: division por cero, variables no definidas, potencias fuera del dominio real, funciones como `log`, `sqrt`, `arcosh`, `artanh` y discontinuidades de `tan`.
 
 ## Sintaxis soportada
 
@@ -88,7 +84,7 @@ Comando alternativo util en Windows:
 cabal exec -- runghc -isrc test\TestSuite.hs
 ```
 
-La suite actual tiene 125 casos.
+La suite actual tiene 138 casos.
 
 ## Estructura del proyecto
 
@@ -119,6 +115,7 @@ docs/
   guia-uso.tex        Guia de uso actualizada en LaTeX.
   guia-uso.pdf        Guia de uso compilada.
   informe-final.tex    Informe final en LaTeX.
+  informe-final.pdf    Informe final compilado.
   monadas-y-evaluacion.md
   informe-base.md
   *.pdf                Guia e informe previos.
@@ -165,7 +162,7 @@ newtype EvalM env a = EvalM (EvalEnv env -> Either ErrorType a)
 
 Esto se parece a combinar una idea de `Reader` con una idea de `Either`, pero implementado a mano para que sea claro en el contexto del trabajo.
 
-Tambien tiene instancia `Alternative`. El operador `<|>` se usa como fallback:
+La instancia de `Monad` permite escribir el evaluador con `return` y `>>=`, de modo que cada paso pueda consultar el entorno y propagar errores. Tambien tiene instancia `Alternative`. El operador `<|>` se usa como fallback:
 
 ```haskell
 lookupVar "z" <|> lookupVar "x"
@@ -226,6 +223,10 @@ perder errores importantes del lenguaje.
 Las tolerancias numericas estan centralizadas en `NumericPolicy`. Esto evita que
 el evaluador, el optimizador y las pruebas usen umbrales dispersos sin nombre.
 
+### Tests de robustez
+
+La suite no prueba solamente casos felices. Incluye dominios invalidos, tangente en puntos no definidos, potencias no finitas, valores cercanos a cero, palabras reservadas mal usadas, parentesis incompletos, archivos con comentarios, archivos sin expresiones y roundtrip entre pretty printer y parser.
+
 ## Para defender el trabajo
 
 Puntos importantes:
@@ -241,6 +242,7 @@ Puntos importantes:
 ## Documentacion
 
 - `docs/informe-final.tex`: informe final en LaTeX.
+- `docs/informe-final.pdf`: informe final compilado.
 - `docs/guia-uso.tex`: guia de uso actualizada en LaTeX.
 - `docs/guia-uso.pdf`: guia de uso compilada.
 - `docs/monadas-y-evaluacion.md`: explicacion especifica de `EvalM`.

@@ -36,10 +36,21 @@ Ejemplos de constructores:
 Lit Double
 Var String
 Add Expr Expr
+Sub Expr Expr
 Mul Expr Expr
+Div Expr Expr
 Pow Expr Expr
 Sin Expr
+Cos Expr
+Tan Expr
+Sinh Expr
+Cosh Expr
+Tanh Expr
+Arsinh Expr
+Arcosh Expr
+Artanh Expr
 Log Expr
+Exp Expr
 Sqrt Expr
 ```
 
@@ -252,7 +263,7 @@ cabal exec -- runghc -isrc test\TestSuite.hs
 Resultado:
 
 ```text
-125 casos, 0 errores, 0 fallos
+138 casos, 0 errores, 0 fallos
 ```
 
 La version final del informe se dejo en `docs/informe-final.tex`, para poder compilarlo aparte a PDF.
@@ -289,10 +300,9 @@ Posibles extensiones:
 
 - permitir elegir variable de derivación desde entrada de usuario;
 - extender el formato de archivo para entornos multivariables;
-- mejorar mensajes de error;
-- agregar más funciones matemáticas;
-- generar el informe final en PDF desde esta base editable;
-- agregar tests de ejemplos como parte automatizada de la suite.
+- mejorar la recuperación de errores del parser para indicar posiciones más amigables;
+- sumar propiedades de testeo más generales para parser, pretty printer y optimizador;
+- agregar más funciones matemáticas si el alcance lo justifica.
 
 ## 15. Conclusión
 

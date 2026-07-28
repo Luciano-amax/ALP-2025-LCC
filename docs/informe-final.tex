@@ -20,29 +20,23 @@
 
 \maketitle
 
-\begin{abstract}
-Este trabajo implementa un DSL/EDSL pequeño para representar expresiones matemáticas, evaluarlas en un punto y calcular derivadas mediante números duales. La propuesta inicial estaba centrada en mostrar el comportamiento de los números duales; durante el desarrollo se extendió hacia una calculadora de expresiones con parser, modo interactivo, lectura de archivos, pretty printer, optimización conservadora, manejo explícito de errores y una mónada propia de evaluación. El resultado no intenta ser un sistema de álgebra computacional completo, sino una herramienta acotada para estudiar cómo se modela un lenguaje en Haskell usando tipos algebraicos, parser combinators, type classes y mónadas.
-\end{abstract}
-
 \section{Introducción}
 
-El objetivo del proyecto es construir un lenguaje pequeño para escribir expresiones matemáticas y evaluarlas de forma segura. En lugar de trabajar directamente con strings durante toda la ejecución, el programa transforma la entrada en un árbol de sintaxis abstracta. A partir de ese árbol se pueden definir distintas interpretaciones: evaluación escalar, evaluación con números duales, impresión legible y optimización.
+El objetivo del proyecto es construir un lenguaje pequeño para escribir expresiones matemáticas y evaluarlas de forma segura. En lugar de trabajar directamente con strings durante toda la ejecución, el programa transforma la entrada en un árbol de sintaxis abstracta. A partir de ese árbol se pueden definir distintas interpretaciones: evaluación escalar, evaluación con números duales y optimización.
 
 La diferenciación automática con números duales es el eje conceptual del trabajo. Si una expresión se evalúa reemplazando la variable por un número dual de la forma \(x + \varepsilon\), el resultado contiene simultáneamente el valor de la función y su derivada en \(x\). Esto permite calcular derivadas sin implementar un derivador simbólico general.
 
 La extensión hacia una calculadora no cambia ese eje, sino que lo vuelve más usable. El parser permite escribir expresiones en una sintaxis cercana a la matemática usual; el modo archivo permite correr varios casos; el manejo de errores evita resultados silenciosos como \texttt{NaN}; y la mónada \texttt{EvalM} ordena el uso de entornos y fallos dentro del evaluador.
 
-Desde el punto de vista de Análisis de Lenguajes de Programación, el interés del trabajo no está únicamente en calcular un resultado numérico. El proyecto permite discutir las etapas habituales de un lenguaje pequeño: una sintaxis concreta escrita por el usuario, una representación abstracta interna, una o más semánticas definidas sobre esa representación y una capa de interacción que usa el lenguaje sin confundirse con él. Esta separación es importante porque evita que el programa sea sólo una colección de funciones matemáticas sueltas.
-
 \section{Alcance y objetivos}
 
-El alcance fue definido para que el proyecto sea suficientemente rico desde el punto de vista de la materia, pero sin desviarse hacia un CAS completo. Se buscó representar expresiones, parsearlas desde texto, evaluarlas en un punto y obtener derivadas por diferenciación automática. También se incorporaron funciones matemáticas usuales, constantes, optimizaciones simples y lectura de archivos.
+Se buscó representar expresiones, parsearlas desde texto, evaluarlas en un punto y obtener derivadas por diferenciación automática. También se incorporaron funciones matemáticas usuales, constantes, optimizaciones simples y lectura de archivos.
 
 Un objetivo importante fue que las mejoras no fueran solamente acumulación de funcionalidades. Por eso se trabajó sobre robustez: el parser consume toda la entrada, el evaluador valida dominios, las optimizaciones no ocultan errores y los tests cubren casos borde. Además, se separó el núcleo del lenguaje de la interfaz de consola para que el DSL pueda razonarse y probarse sin depender del ejecutable.
 
 El soporte multivariable existe como base en la API mediante entornos, pero el modo interactivo y el formato de archivo siguen centrados en la variable \texttt{x}. Esta decisión mantiene simple la experiencia de usuario y deja una extensión posible sin hacer crecer demasiado el alcance actual.
 
-En consecuencia, los objetivos pueden leerse en dos niveles. En el nivel matemático, se busca evaluar expresiones y obtener derivadas por números duales. En el nivel de lenguaje, se busca diseñar una sintaxis, un AST, un parser, interpretaciones y mecanismos de validación. Esta segunda lectura es la que justifica que el trabajo sea presentado como DSL/EDSL y no sólo como una calculadora.
+En consecuencia, los objetivos pueden leerse en dos niveles. En el nivel matemático, se busca evaluar expresiones y obtener derivadas por números duales. En el nivel de lenguaje, se busca diseñar una sintaxis, un AST, un parser, interpretaciones y mecanismos de validación.
 
 \section{Organización del proyecto}
 
@@ -115,7 +109,7 @@ También se exige que el parser consuma toda la entrada. Esto es relevante porqu
 x + 1 basura
 \end{lstlisting}
 
-En ese caso la parte \texttt{x + 1} podría parsearse bien, pero quedaría texto sobrante. El proyecto rechaza esa entrada para evitar resultados inesperados. Esta decisión vuelve el DSL más estricto y facilita detectar errores del usuario.
+En ese caso la parte \texttt{x + 1} podría parsearse bien, pero quedaría texto sobrante. El proyecto rechaza esa entrada para evitar resultados inesperados.
 
 También se decidió reservar los nombres de funciones y constantes. Esto evita que \texttt{sin}, \texttt{log}, \texttt{pi} o \texttt{e} sean tratados accidentalmente como variables comunes. La elección simplifica el lenguaje de usuario y permite que expresiones como \texttt{sin(pi/2)} tengan una interpretación estable.
 
@@ -196,7 +190,7 @@ newtype EvalM env a =
   EvalM (EvalEnv env -> Either ErrorType a)
 \end{lstlisting}
 
-Una computación \texttt{EvalM env a} recibe un entorno de variables y puede devolver un error o un valor. Conceptualmente combina dos ideas vistas en la materia: lectura de contexto, similar a \texttt{Reader}, y propagación de errores, similar a \texttt{Either}. Se implementó a mano para que las instancias sean visibles y para que el trabajo muestre claramente qué efecto se está modelando.
+Una computación \texttt{EvalM env a} recibe un entorno de variables y puede devolver un error o un valor. Conceptualmente: lectura de contexto, similar a \texttt{Reader}, y propagación de errores, similar a \texttt{Either}.
 
 La función que ejecuta una computación es:
 
@@ -206,7 +200,7 @@ runEvalM :: EvalEnv env -> EvalM env a -> Either ErrorType a
 
 El operador \texttt{>>=} permite encadenar evaluaciones donde una etapa depende del resultado anterior. Por ejemplo, en una división primero se evalúa el numerador, luego el denominador y recién después se decide si se puede dividir. Si alguna parte falla, el error se propaga sin seguir calculando.
 
-El proyecto también define \texttt{return = pure} en la instancia de \texttt{Monad}. Esto respeta la jerarquía actual de clases de Haskell, donde toda mónada también debe ser aplicativa. En el evaluador se usan \texttt{return} y \texttt{>>=} para que el uso monádico sea explícito, especialmente en las operaciones donde hay validaciones intermedias.
+También definimos \texttt{return = pure} en la instancia de \texttt{Monad}. Esto respeta la jerarquía actual de clases de Haskell, donde toda mónada también debe ser aplicativa. En el evaluador se usan \texttt{return} y \texttt{>>=} para que el uso monádico sea explícito, especialmente en las operaciones donde hay validaciones intermedias.
 
 La instancia \texttt{Alternative} agrega una forma simple de expresar respaldos:
 
@@ -253,10 +247,6 @@ La solución usada es imprimir según niveles de precedencia. Una suma se imprim
 
 También se controlan casos como potencias anidadas, restas a derecha y divisiones a derecha. La idea central es que el pretty printer debe ser agradable, pero ante todo debe preservar significado.
 
-Para validar esta decisión se agregaron tests de roundtrip. Se imprime una expresión, se vuelve a parsear y se compara su comportamiento. Esta prueba es importante porque conecta dos módulos distintos: si el pretty printer genera una cadena ambigua, el parser puede reconstruir una expresión diferente.
-
-El pretty printer no intenta ser una herramienta estética independiente, sino una parte más del lenguaje. Su salida puede volver a ser entrada del parser. Por eso el criterio de corrección no es sólo que el texto sea legible, sino que preserve la estructura semántica de la expresión. Este punto justifica especialmente los tests con potencias, negativos y paréntesis.
-
 \section{Optimización conservadora}
 
 El módulo \texttt{Expr} también contiene \texttt{optimize}. Esta función aplica reglas algebraicas simples sobre el AST, como eliminar sumas por cero, multiplicaciones por uno o plegar operaciones entre literales.
@@ -299,27 +289,11 @@ Centralizar estos criterios evita que aparezcan constantes mágicas dispersas po
 
 Esta centralización también evita inconsistencias entre módulos. Si el evaluador considera que un valor es cercano a cero con un criterio, pero los tests u optimizaciones usan otro, podrían aparecer comportamientos difíciles de explicar. Al concentrar esas decisiones, el proyecto gana coherencia y facilita futuros ajustes.
 
-\section{Interfaz pública y ejecutable}
-
-El módulo \texttt{DSL} reexporta las piezas principales del lenguaje. Su función es ofrecer una API limpia para ejemplos, tests o usos futuros. Desde ahí se puede acceder al AST, parser, evaluador, mónada de evaluación, pretty printer y procesamiento de archivos.
-
-El ejecutable queda separado en \texttt{app/}. \texttt{Main} interpreta argumentos y decide entre modo interactivo, modo archivo o ayuda. \texttt{Console} maneja la interacción: lee una expresión, pide el valor de \texttt{x}, evalúa y muestra resultados. Esta separación evita que la lógica del lenguaje quede mezclada con entrada/salida.
-
-Esta distinción también mejora la mantenibilidad. Las funciones del núcleo pueden probarse con HUnit sin simular entrada por teclado. La consola, en cambio, puede cambiar su formato de impresión o sus mensajes sin modificar la semántica del DSL. Para un proyecto de lenguaje, esta frontera es una decisión de diseño importante.
-
 \section{Invariantes de diseño}
 
 A lo largo del proyecto se mantuvieron varias invariantes. La primera es que el parser debe rechazar entradas ambiguas o parcialmente consumidas. La segunda es que el pretty printer debe producir texto que pueda volver a parsearse sin cambiar el significado observable de la expresión. La tercera es que el optimizador no debe ocultar errores que el evaluador debería reportar. La cuarta es que los errores matemáticos deben representarse como valores de \texttt{ErrorType} y no como excepciones no controladas.
 
 Estas invariantes no aparecen aisladas. Se refuerzan entre sí: el parser estricto evita aceptar basura, el pretty printer se valida con roundtrip, el optimizador se prueba con casos donde una regla agresiva sería incorrecta y el evaluador dual valida dominios antes de llamar a operaciones parciales. Por eso la robustez del proyecto no depende de una sola función, sino de varias decisiones coordinadas.
-
-\section{Comparación con un CAS simbólico}
-
-Un sistema de álgebra computacional apunta a manipulación simbólica general: derivación simbólica, integración, simplificación avanzada y transformación algebraica. Este proyecto toma otro camino. Trabaja con expresiones, pero su derivación se basa en evaluación con números duales, no en construir una nueva expresión derivada.
-
-Esta diferencia delimita el alcance técnico del proyecto. El trabajo no intenta resolver todos los problemas de álgebra simbólica. Se concentra en mostrar cómo un lenguaje pequeño puede tener varias interpretaciones bien separadas y cómo los números duales permiten obtener derivadas de manera automática y composicional.
-
-En particular, no se busca producir una fórmula simplificada para la derivada. Si se evalúa \texttt{sin(x\^{}2)} en un punto, el sistema devuelve el valor y la derivada en ese punto, no una expresión simbólica equivalente a \(2x\cos(x^2)\). Esta limitación es deliberada y coherente con la técnica elegida.
 
 \section{Tests y validación}
 
@@ -337,8 +311,6 @@ cabal exec -- runghc -isrc test\TestSuite.hs
 cabal sdist
 \end{lstlisting}
 
-Además, los documentos principales se mantienen en LaTeX para poder compilar la guía y el informe final como PDF.
-
 La validación combina pruebas unitarias con casos de integración. Las pruebas unitarias revisan comportamientos puntuales, como precedencia o errores de dominio. Los tests de archivo ejercitan el flujo completo: lectura de línea, limpieza de comentarios, parsing, optimización, evaluación escalar y evaluación dual. Esta combinación es importante porque algunos errores sólo aparecen cuando los módulos interactúan.
 
 \section{Limitaciones}
@@ -349,16 +321,10 @@ Estas limitaciones no son solamente faltantes, sino decisiones de alcance. Permi
 
 También hay una limitación propia del uso de \texttt{Double}: los resultados numéricos están sujetos a aproximación de punto flotante. El proyecto no intenta implementar aritmética exacta. En cambio, define tolerancias para tomar decisiones razonables en validaciones de dominio y comparaciones numéricas. Esta elección es adecuada para una calculadora de expresiones reales, pero debe mencionarse como parte del alcance.
 
-\section{Trabajo futuro}
-
-Las extensiones más naturales serían permitir elegir la variable de derivación desde la entrada de usuario, ampliar el formato de archivo para entornos multivariables y mejorar la recuperación de errores del parser con mensajes más orientados a posición y contexto. También podrían agregarse propiedades de testeo más generales para parser, pretty printer y optimizador.
-
-Otra línea posible sería sumar más funciones matemáticas, siempre que no desvíen el objetivo principal. En este proyecto conviene que cada extensión mantenga la regla de diseño usada hasta ahora: agregar funcionalidad sólo si mejora la robustez, la claridad o la expresividad del lenguaje.
-
 \section{Conclusión}
 
 El proyecto presenta un lenguaje pequeño de expresiones matemáticas implementado en Haskell. El AST permite separar sintaxis de interpretación; el parser acerca el lenguaje al uso textual; el evaluador escalar calcula valores; el evaluador dual calcula derivadas automáticamente; y \texttt{EvalM} ordena entorno y errores dentro de una mónada propia.
 
-La parte más importante del diseño es que las decisiones se sostienen entre sí. El pretty printer se valida contra el parser, el optimizador respeta los errores del evaluador, las tolerancias numéricas están centralizadas y los ejemplos forman parte de la suite. El resultado es un trabajo acotado, pero robusto y coherente con los contenidos de la materia.
+La parte más importante del diseño es que las decisiones se sostienen entre sí. El pretty printer se valida contra el parser, el optimizador respeta los errores del evaluador, las tolerancias numéricas están centralizadas y los ejemplos forman parte de la suite.
 
 \end{document}

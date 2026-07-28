@@ -95,7 +95,7 @@ cabal run ALP2025-LCC -- --file examples\basico.txt
 En algunas instalaciones de Windows puede fallar la ejecución directa del binario generado por Cabal por políticas del sistema. En ese caso se puede correr el mismo flujo con \texttt{runghc}:
 
 \begin{codeblock}
-cabal exec -- runghc -isrc -iapp app\Main.hs -f examples\defensa.txt
+cabal exec -- runghc -isrc -iapp app\Main.hs -f examples\basico.txt
 \end{codeblock}
 
 \section{Comentarios en archivos}
@@ -175,15 +175,15 @@ La optimización es conservadora. No se aplican reglas como \texttt{x/x = 1}, \t
 
 \section{Archivos de ejemplo}
 
-La carpeta \texttt{examples/} contiene archivos preparados para probar partes distintas del lenguaje. \texttt{basico.txt} muestra expresiones iniciales, \texttt{compuestas.txt} combina funciones, \texttt{constantes.txt} usa \texttt{pi} y \texttt{e}, \texttt{optimizaciones.txt} muestra reglas conservadoras, \texttt{casos\_error.txt} fuerza errores controlados y \texttt{defensa.txt} reúne casos útiles para explicar el trabajo.
+La carpeta \texttt{examples/} contiene archivos preparados para probar partes distintas del lenguaje. \texttt{basico.txt} muestra expresiones iniciales, \texttt{compuestas.txt} combina funciones, \texttt{constantes.txt} usa \texttt{pi} y \texttt{e}, \texttt{optimizaciones.txt} muestra reglas conservadoras y \texttt{casos\_error.txt} fuerza errores controlados.
 
-Una corrida recomendada para revisar varias decisiones juntas es:
+Una corrida simple para revisar el modo archivo es:
 
 \begin{codeblock}
-cabal exec -- runghc -isrc -iapp app\Main.hs -f examples\defensa.txt
+cabal exec -- runghc -isrc -iapp app\Main.hs -f examples\basico.txt
 \end{codeblock}
 
-Ese archivo muestra precedencia, derivación automática, optimización, errores de dominio, constantes y comentarios dentro de expresiones.
+Otros archivos de la carpeta permiten revisar precedencia, derivación automática, optimización, errores de dominio, constantes y comentarios dentro de expresiones.
 
 \section{Pruebas}
 
@@ -205,7 +205,7 @@ La suite actual contiene 138 casos. Además de probar evaluación básica, deriv
 Verificacion de Casos de ejemplo
 \end{codeblock}
 
-Esa prueba lee todos los archivos \texttt{.txt} de \texttt{examples/}. La intención es que los ejemplos usados para mostrar el trabajo también estén cubiertos por la validación automática.
+Esa prueba lee todos los archivos \texttt{.txt} de \texttt{examples/}. La intención es que los ejemplos distribuidos con el proyecto también estén cubiertos por la validación automática.
 
 \section{Documentación}
 

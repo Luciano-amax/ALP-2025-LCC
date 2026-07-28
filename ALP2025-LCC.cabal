@@ -52,14 +52,10 @@ build-type:         Simple
 -- Extra doc files to be distributed with the package, such as a CHANGELOG or a README.
 extra-doc-files:    CHANGELOG.md
                     README.md
-                    "docs/Dual Numbers - Guide.pdf"
-                    "docs/Dual Numbers - Informe.pdf"
                     docs/guia-uso.pdf
                     docs/guia-uso.tex
                     docs/informe-final.pdf
                     docs/informe-final.tex
-                    docs/monadas-y-evaluacion.md
-                    docs/informe-base.md
 
 -- Material de prueba y ejemplos que acompana a la entrega.
 extra-source-files: examples/*.txt

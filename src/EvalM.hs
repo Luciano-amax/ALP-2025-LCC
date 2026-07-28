@@ -17,7 +17,7 @@ data ErrorType
   | DomainError String
   deriving (Show, Eq)
 
--- Mensaje para usuario final; el Show queda reservado para debugging.
+-- Mensaje para usuario final; Show queda para depurar.
 mostrarError :: ErrorType -> String
 mostrarError DivideByZero =
   "Division por cero"

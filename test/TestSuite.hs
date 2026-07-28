@@ -22,25 +22,25 @@ evalDual' expr x = case evalDual expr x of
 
 case1 :: Test
 case1 = TestCase $ do
-  let expr = Add (Lit 3) (Mul (Var "x") (Var "x"))  -- f(x) = 3 + x^2
+  let expr = Add (Lit 3) (Mul (Var "x") (Var "x"))
   let result = eval expr 2
   assertEqual "Evaluacion basica de f(x) = 3 + x^2" (Right 7.0) result
 
 case2 :: Test
 case2 = TestCase $ do
-  let expr = Add (Lit 3) (Mul (Var "x") (Var "x"))  -- f(x) = 3 + x^2
+  let expr = Add (Lit 3) (Mul (Var "x") (Var "x"))
   let result = evalDual' expr 2
   assertEqual "Evaluacion dual de f(x) = 3 + x^2" (Right (7.0, 4.0)) result
 
 case3 :: Test
 case3 = TestCase $ do
-  let expr = Div (Lit 1) (Sub (Var "x") (Var "x"))  -- f(x) = 1 / (x - x)
+  let expr = Div (Lit 1) (Sub (Var "x") (Var "x"))
   let result = eval expr 2
   assertEqual "Errores en division por cero" (Left DivideByZero) result
 
 case4 :: Test
 case4 = TestCase $ do
-  let expr = Sin (Var "x")  -- f(x) = sin(x)
+  let expr = Sin (Var "x")
   let result = evalDual' expr (pi / 2)
   case result of
     Right (val, deriv') -> do
@@ -58,27 +58,27 @@ case5 = TestCase $ do
 
 case6 :: Test
 case6 = TestCase $ do
-  let expr = Sin (Pow (Var "x") (Lit 2))  -- f(x) = sin(x^2)
-  let result = evalDual' expr 1           -- f(1), f'(1)
+  let expr = Sin (Pow (Var "x") (Lit 2))
+  let result = evalDual' expr 1
   assertEqual "Validar derivada de f(x) = sin(x^2)" (Right (sin 1, 2 * cos 1)) result
 
 case7 :: Test
 case7 = TestCase $ do
-  let input = "(3 + * x)"  -- Expresion con error de sintaxis
+  let input = "(3 + * x)"
   let result = parse parseExpr "" input
   assertBool "Parsing erroneo (parsing error esperado)" (case result of Left _ -> True; _ -> False)
 
 case8 :: Test
 case8 = TestCase $ do
-  let expr = Mul (Sin (Var "x")) (Pow (Var "x") (Lit 3)) -- f(x) = sin(x) * x^3
-  let result = evalDual' expr 2 -- Evaluar f(2) y f'(2)
+  let expr = Mul (Sin (Var "x")) (Pow (Var "x") (Lit 3))
+  let result = evalDual' expr 2
   let f_x = sin 2 * 8
   let f'_x = cos 2 * 8 + sin 2 * 12
   assertEqual "Derivada de f(x) = sin(x) * x^3" (Right (f_x, f'_x)) result
 
 case9 :: Test
 case9 = TestCase $ do
-  let expr = Mul (Lit pi) (Var "x")  -- f(x) = pi * x
+  let expr = Mul (Lit pi) (Var "x")
   let result = evalDual' expr 3
   assertEqual "f(x) = pi * x y su derivada" (Right (pi * 3, pi)) result
 
@@ -242,7 +242,7 @@ testDominiosDual = TestList
 testNegativePowers :: Test
 testNegativePowers = TestList
   [ TestCase $ do
-      -- (-x)^2 con x=3 deberia dar 9 y derivada 6 (regla de la cadena: 2*(-x)*(-1) = 2x)
+      -- Caso borde de precedencia: la base negativa debe conservar la regla de cadena.
       let expr = Pow (Sub (Lit 0) (Var "x")) (Lit 2)
       let result = evalDual' expr 3
       case result of
@@ -261,7 +261,6 @@ testNegativePowers = TestList
           assertBool "-x^2 derivada cercana a -6" (abs (deriv' + 6.0) < epsilonEntero)
         Left err -> assertFailure $ "Error en -x^2: " ++ show err
   , TestCase $ do
-      -- (-x) * (-x) con x=2 deberia dar 4 y derivada 4
       let expr = Mul (Sub (Lit 0) (Var "x")) (Sub (Lit 0) (Var "x"))
       let result = evalDual' expr 2
       assertEqual "(-x)*(-x) en x=2" (Right (4.0, 4.0)) result
@@ -271,7 +270,6 @@ testNegativePowers = TestList
 testTrigIdentities :: Test
 testTrigIdentities = TestList
   [ TestCase $ do
-      -- (sin(x)^2 + cos(x)^2) * x deberia dar x con derivada 1
       let expr = Mul (Add (Pow (Sin (Var "x")) (Lit 2)) 
                           (Pow (Cos (Var "x")) (Lit 2))) 
                      (Var "x")
@@ -279,11 +277,10 @@ testTrigIdentities = TestList
       case result of
         Right (val, deriv') -> do
           assertBool "Valor cercano a 3" (abs (val - 3.0) < epsilonEntero)
-          -- La derivada puede no ser exactamente 1 por errores numericos
+          -- Aca alcanza con pedir que la derivada sea finita; hay redondeo numerico.
           assertBool "Derivada es numero finito" (not $ isNaN deriv' || isInfinite deriv')
         Left err -> assertFailure $ "Error en identidad trigonometrica: " ++ show err
   , TestCase $ do
-      -- sin^2(x) + cos^2(x) deberia dar 1 con derivada 0
       let expr = Add (Pow (Sin (Var "x")) (Lit 2)) (Pow (Cos (Var "x")) (Lit 2))
       let result = evalDual' expr 0.5
       case result of
@@ -446,8 +443,7 @@ testDerivadasEnBordes = TestList
 -- Expresiones tomadas de ejemplos reales del proyecto.
 testEjemplosReales :: Test
 testEjemplosReales = TestList
-  [ -- De basico.txt
-    TestCase $ do
+  [ TestCase $ do
       let result = case parse parseExpr "" "x^2" of
                      Right expr -> eval expr 3
                      Left _     -> Left $ UndefinedVariable "parse error"
@@ -468,8 +464,7 @@ testEjemplosReales = TestList
           assertBool "log(e) ~ 1" (abs (val - 1.0) < epsilonEntero)
           assertBool "log'(e) ~ 1/e" (abs (deriv' - 1/(exp 1)) < epsilonEntero)
         Left _ -> assertFailure "No deberia dar error"
-  , -- De compuestas.txt
-    TestCase $ do
+  , TestCase $ do
       let result = case parse parseExpr "" "x^3 - 2*x^2 + x - 5" of
                      Right expr -> evalDual' expr 2
                      Left _     -> Left $ UndefinedVariable "parse error"
@@ -481,8 +476,7 @@ testEjemplosReales = TestList
       case result of
         Right val -> assertBool "sin(1^2) = sin(1)" (abs (val - sin 1) < epsilonEntero)
         Left _ -> assertFailure "No deberia dar error"
-  , -- De constantes
-    TestCase $ do
+  , TestCase $ do
       let result = case parse parseExpr "" "pi * x + e" of
                      Right expr -> evalDual' expr 1
                      Left _     -> Left $ UndefinedVariable "parse error"
@@ -491,16 +485,14 @@ testEjemplosReales = TestList
           assertBool "pi * 1 + e" (abs (val - (pi + exp 1)) < epsilonEntero)
           assertBool "derivada = pi" (abs (deriv' - pi) < epsilonEntero)
         Left _ -> assertFailure "No deberia dar error"
-  , -- De trigonometricas.txt
-    TestCase $ do
+  , TestCase $ do
       let result = case parse parseExpr "" "sin(x)^2 + cos(x)^2" of
                      Right expr -> eval expr 0.5
                      Left _     -> Left $ UndefinedVariable "parse error"
       case result of
         Right val -> assertBool "sin^2(x) + cos^2(x) = 1" (abs (val - 1.0) < epsilonEntero)
         Left _ -> assertFailure "No deberia dar error"
-  , -- De hiperbolicas.txt
-    TestCase $ do
+  , TestCase $ do
       let result = case parse parseExpr "" "sinh(x) + cosh(x)" of
                      Right expr -> eval expr 2
                      Left _     -> Left $ UndefinedVariable "parse error"

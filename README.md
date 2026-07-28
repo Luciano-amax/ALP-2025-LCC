@@ -108,7 +108,6 @@ test/
 
 examples/
   *.txt                Casos de entrada para la calculadora.
-  defensa.txt          Casos elegidos para mostrar decisiones del trabajo.
   monada_eval.hs       Ejemplo de uso directo de EvalM.
 
 docs/
@@ -116,9 +115,9 @@ docs/
   guia-uso.pdf        Guia de uso compilada.
   informe-final.tex    Informe final en LaTeX.
   informe-final.pdf    Informe final compilado.
-  monadas-y-evaluacion.md
-  informe-base.md
-  *.pdf                Guia e informe previos.
+
+Extraer antes de eentrega/
+  Material auxiliar que no forma parte del entregable principal.
 ```
 
 ## Decisiones de diseno
@@ -227,25 +226,9 @@ el evaluador, el optimizador y las pruebas usen umbrales dispersos sin nombre.
 
 La suite no prueba solamente casos felices. Incluye dominios invalidos, tangente en puntos no definidos, potencias no finitas, valores cercanos a cero, palabras reservadas mal usadas, parentesis incompletos, archivos con comentarios, archivos sin expresiones y roundtrip entre pretty printer y parser.
 
-## Para defender el trabajo
-
-Puntos importantes:
-
-- El proyecto no es un CAS completo. No hace derivacion simbolica general ni integracion.
-- La derivada se calcula por diferenciacion automatica con numeros duales.
-- La calculadora es una extension del DSL original, no el eje teorico principal.
-- `EvalM` se incorpora para ordenar entorno y errores, y para mostrar uso real de monadas.
-- El soporte multivariable existe como base en la API (`evalWithEnv`, `evalDualWithEnv`), pero el modo de usuario sigue centrado en `x`.
-- Las optimizaciones son conservadoras para preservar errores de dominio.
-- El proyecto no toma el alcance de un CAS simbolico: se mantiene centrado en numeros duales y diferenciacion automatica.
-
 ## Documentacion
 
 - `docs/informe-final.tex`: informe final en LaTeX.
 - `docs/informe-final.pdf`: informe final compilado.
 - `docs/guia-uso.tex`: guia de uso actualizada en LaTeX.
 - `docs/guia-uso.pdf`: guia de uso compilada.
-- `docs/monadas-y-evaluacion.md`: explicacion especifica de `EvalM`.
-- `docs/informe-base.md`: version base en Markdown.
-- `docs/Dual Numbers - Guide.pdf`: guia previa.
-- `docs/Dual Numbers - Informe.pdf`: informe previo.

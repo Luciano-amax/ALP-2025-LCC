@@ -23,17 +23,15 @@
 
 Esta guía explica cómo compilar, ejecutar y probar el evaluador de expresiones desarrollado para el trabajo final. El programa permite escribir expresiones matemáticas en una variable principal \texttt{x}, evaluarlas en un punto y calcular su derivada mediante números duales.
 
-Aunque el uso más directo es como calculadora, internamente el proyecto está organizado como un DSL/EDSL. La entrada textual se parsea a un árbol de expresiones, ese árbol puede optimizarse, evaluarse, imprimirse y derivarse automáticamente. Por eso la guía no sólo muestra comandos, sino también qué espera el programa en cada modo de uso.
+La entrada textual se parsea a un árbol de expresiones, ese árbol puede optimizarse, evaluarse, imprimirse y derivarse automáticamente. Por eso la guía no sólo muestra comandos, sino también qué espera el programa en cada modo de uso.
 
 \section{Requisitos y ubicación}
 
-Para usar el proyecto hace falta tener GHC y Cabal instalados. Los comandos están pensados para ejecutarse desde la raíz del repositorio. En PowerShell, por ejemplo:
+Para usar el proyecto hace falta tener GHC y Cabal instalados. Los comandos están pensados para ejecutarse desde la raíz del repositorio, por ejemplo:
 
 \begin{codeblock}
 cd C:\Users\lucho\ALP-2025-LCC
 \end{codeblock}
-
-El proyecto también puede compilarse desde WSL. Esto es útil especialmente para compilar los documentos LaTeX, aunque los comandos de Cabal funcionan normalmente desde PowerShell.
 
 \section{Compilación}
 
@@ -193,7 +191,7 @@ La suite completa se corre con:
 cabal test
 \end{codeblock}
 
-En Windows, si la ejecución del binario de test queda bloqueada, se puede usar:
+Si la ejecución del binario de test queda bloqueada, se puede usar:
 
 \begin{codeblock}
 cabal exec -- runghc -isrc test\TestSuite.hs
@@ -215,18 +213,5 @@ La documentación principal está en LaTeX. Los archivos fuente son:
 docs/informe-final.tex
 docs/guia-uso.tex
 \end{codeblock}
-
-Ambos pueden compilarse con \texttt{pdflatex} desde la carpeta \texttt{docs/}.
-
-\begin{codeblock}
-pdflatex informe-final.tex
-pdflatex guia-uso.tex
-\end{codeblock}
-
-Los PDF generados también están incluidos como parte de la entrega.
-
-\section{Notas finales}
-
-El proyecto no busca ser un sistema de álgebra computacional completo. Su foco es representar un lenguaje pequeño, interpretarlo de forma segura y usar números duales para obtener derivadas automáticamente. Las decisiones de diseño priorizan robustez y claridad por encima de agregar funcionalidades sin conexión con el objetivo del trabajo.
 
 \end{document}
